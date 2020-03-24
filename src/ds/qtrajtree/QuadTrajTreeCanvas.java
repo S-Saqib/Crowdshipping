@@ -14,50 +14,69 @@ import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
 import ds.qtree.Node;
 
+public class QuadTrajTreeCanvas extends JComponent {
 
-public class QuadTrajTreeCanvas extends JComponent{
-	/**
-	 * 
-	 */
-        private int []trajColorPallette, qNodeColorPallettee;
-	private static final long serialVersionUID = 4703035325723368366L;
-        private static final int windowSize = 1000;
-        private static final int scaleNormalizer = 9;
-        private static final int displacementOffset = 40;
-	QuadTrajTree quadTrajTree;
-	public QuadTrajTreeCanvas(QuadTrajTree quadTrajTree) {
-		super();
-		this.quadTrajTree = quadTrajTree;
-                int trajCount = quadTrajTree.getTotalNodeTraj(quadTrajTree.getQuadTree().getRootNode());
-                int nodeCount = quadTrajTree.getQuadTree().getNodeCount();
-                System.out.println("Before drawing, number of trajs = " + trajCount + ", number of qNodes = " + nodeCount +
-                        ", number of qNodes having trajs = " + quadTrajTree.nodeToIntraTrajsMap.size());
-	}
+    /**
+     *
+     */
+    private int[] trajColorPallette, qNodeColorPallette;
+    private static final long serialVersionUID = 4703035325723368366L;
+    private static final int windowSize = 1000;
+    private static final int scaleNormalizer = 9;
+    private static final int displacementOffset = 40;
+    QuadTrajTree quadTrajTree;
 
-	public void draw() {
-		JFrame window = new JFrame();
-		window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		window.setBounds(0, 0, windowSize, windowSize);
-		window.getContentPane().add(this);
-		window.setVisible(true);
+    public QuadTrajTreeCanvas(QuadTrajTree quadTrajTree) {
+        super();
+        this.quadTrajTree = quadTrajTree;
+
+        int trajCount = quadTrajTree.getTotalNodeTraj(quadTrajTree.getQuadTree().getRootNode());
+        int nodeCount = quadTrajTree.getQuadTree().getNodeCount();
+        int nodesHavingTrajectories = quadTrajTree.nodeToIntraTrajsMap.size();
+        int colorStepSize = 0xDDDDDD / nodesHavingTrajectories;
+
+        qNodeColorPallette = new int[nodesHavingTrajectories];
+        trajColorPallette = new int[nodesHavingTrajectories];
+
+        for (int i = 0; i < nodesHavingTrajectories; i++) {
+            qNodeColorPallette[i] = 0x000000 + (colorStepSize / 2) * i;
+            trajColorPallette[i] = 0xDDDDDD / 2 + qNodeColorPallette[i];
         }
-	
-	public void paint(Graphics g) {
-		
-		for (Entry<Node, ArrayList<CoordinateArraySequence>> entry : quadTrajTree.nodeToIntraTrajsMap.entrySet())
-		{
-			Node node = entry.getKey();
-			Color color = new Color((int)(Math.random() * 0x1000000));
-			g.setColor(color);
-			g.drawRect ((int)node.getX()*scaleNormalizer + displacementOffset, (int)node.getY()*scaleNormalizer + displacementOffset,
-                                (int)node.getW()*scaleNormalizer, (int)node.getH()*scaleNormalizer);
-			ArrayList<CoordinateArraySequence> trajectories = entry.getValue();
-			for (CoordinateArraySequence trajectory : trajectories) {
-                            // will need to modify the following line later for multipoint trajectories (iterating over variable size of the coordinates
-                            g.drawLine((int)trajectory.getX(0)*scaleNormalizer + displacementOffset, (int)trajectory.getY(0)*scaleNormalizer + displacementOffset,
-                                    (int)trajectory.getX(1)*scaleNormalizer + displacementOffset, (int)trajectory.getY(1)*scaleNormalizer + displacementOffset);
-			}
-			
-		}
-	}
+
+        System.out.println("Before drawing, number of trajs = " + trajCount + ", number of qNodes = " + nodeCount
+                + ", number of qNodes having trajs = " + nodesHavingTrajectories);
+    }
+
+    public void draw() {
+        JFrame window = new JFrame();
+        window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        window.setBounds(0, 0, windowSize, windowSize);
+        window.getContentPane().add(this);
+        window.setVisible(true);
+    }
+
+    public void paint(Graphics g) {
+
+        int count = 0;
+        for (Entry<Node, ArrayList<CoordinateArraySequence>> entry : quadTrajTree.nodeToIntraTrajsMap.entrySet()) {
+            Node node = entry.getKey();
+            //Color color = new Color((int)(Math.random() * 0x1000000));
+            Color qNodeColor = new Color(qNodeColorPallette[count]);
+            g.setColor(qNodeColor);
+            g.drawRect((int) node.getX() * scaleNormalizer + displacementOffset, (int) node.getY() * scaleNormalizer + displacementOffset,
+                    (int) node.getW() * scaleNormalizer, (int) node.getH() * scaleNormalizer);
+            ArrayList<CoordinateArraySequence> trajectories = entry.getValue();
+            
+            Color trajColor = new Color(trajColorPallette[count]);
+            g.setColor(trajColor);
+            
+            for (CoordinateArraySequence trajectory : trajectories) {
+                // will need to modify the following line later for multipoint trajectories (iterating over variable size of the coordinates
+                g.drawLine((int) trajectory.getX(0) * scaleNormalizer + displacementOffset, (int) trajectory.getY(0) * scaleNormalizer + displacementOffset,
+                        (int) trajectory.getX(1) * scaleNormalizer + displacementOffset, (int) trajectory.getY(1) * scaleNormalizer + displacementOffset);
+            }
+            
+            count++;
+        }
+    }
 }
