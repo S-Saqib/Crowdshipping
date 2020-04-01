@@ -13,10 +13,12 @@ import java.util.Map.Entry;
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
 import ds.qtrajtree.QuadTrajTree;
+import ds.qtrajtree.TQIndex;
 import ds.qtree.Node;
 import io.real.InputParser;
 
 import io.real.SimpleParser;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -85,8 +87,11 @@ public class CrowdShipping {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
             }
           */  
-            QuadTrajTree quadTrajTree = new QuadTrajTree(userTrajectories, inParser.latCoeff, inParser.latConst, inParser.lonCoeff, inParser.lonConst);
-            System.out.println(userTrajectories.size());
+            //QuadTrajTree quadTrajTree = new QuadTrajTree(userTrajectories, inParser.latCoeff, inParser.latConst, inParser.lonCoeff, inParser.lonConst);
+            TQIndex quadTrajTree = new TQIndex(userTrajectories, inParser.latCoeff, inParser.latConst, inParser.lonCoeff, inParser.lonConst);
+            Statistics stats = new Statistics(quadTrajTree);
+            stats.printStats();
+            //System.out.println(userTrajectories.size());
             //quadTrajTree = null;
             //quadTrajTree.getAllInterNodeTrajsId(quadTrajTree.getQuadTree().getRootNode());
         /*

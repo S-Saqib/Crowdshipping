@@ -13,6 +13,7 @@ import com.vividsolutions.jts.geom.CoordinateSequence;
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
 import ds.qtree.Node;
+import java.util.Arrays;
 
 public class QuadTrajTreeCanvas extends JComponent {
 
@@ -24,27 +25,23 @@ public class QuadTrajTreeCanvas extends JComponent {
     private static final int windowSize = 1000;
     private static final int scaleNormalizer = 9;
     private static final int displacementOffset = 40;
-    QuadTrajTree quadTrajTree;
+    TQIndex quadTrajTree;
 
-    public QuadTrajTreeCanvas(QuadTrajTree quadTrajTree) {
+    public QuadTrajTreeCanvas(TQIndex quadTrajTree) {
         super();
         this.quadTrajTree = quadTrajTree;
 
-        int trajCount = quadTrajTree.getTotalNodeTraj(quadTrajTree.getQuadTree().getRootNode());
-        int nodeCount = quadTrajTree.getQuadTree().getNodeCount();
-        int nodesHavingTrajectories = quadTrajTree.nodeToIntraTrajsMap.size();
+        int nodesHavingTrajectories = quadTrajTree.qNodeToTrajsMap.size();
         int colorStepSize = 0xDDDDDD / nodesHavingTrajectories;
 
         qNodeColorPallette = new int[nodesHavingTrajectories];
         trajColorPallette = new int[nodesHavingTrajectories];
-
+        
         for (int i = 0; i < nodesHavingTrajectories; i++) {
             qNodeColorPallette[i] = 0x000000 + (colorStepSize / 2) * i;
             trajColorPallette[i] = 0xDDDDDD / 2 + qNodeColorPallette[i];
         }
 
-        System.out.println("Before drawing, number of trajs = " + trajCount + ", number of qNodes = " + nodeCount
-                + ", number of qNodes having trajs = " + nodesHavingTrajectories);
     }
 
     public void draw() {
@@ -58,7 +55,7 @@ public class QuadTrajTreeCanvas extends JComponent {
     public void paint(Graphics g) {
 
         int count = 0;
-        for (Entry<Node, ArrayList<CoordinateArraySequence>> entry : quadTrajTree.nodeToIntraTrajsMap.entrySet()) {
+        for (Entry<Node, ArrayList<CoordinateArraySequence>> entry : quadTrajTree.qNodeToTrajsMap.entrySet()) {
             Node node = entry.getKey();
             //Color color = new Color((int)(Math.random() * 0x1000000));
             Color qNodeColor = new Color(qNodeColorPallette[count]);

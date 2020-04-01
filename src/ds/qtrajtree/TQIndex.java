@@ -22,7 +22,7 @@ import result.ResultPlotter;
 
 import query.topk.DiskIO;
 
-public class QuadTrajTree {
+public class TQIndex {
 
     final double proximity;
     private QuadTree quadTree;
@@ -32,18 +32,29 @@ public class QuadTrajTree {
     //public Map<String, String> trajToNodeStrMap = new HashMap<String, String>();
     //public Map<CoordinateArraySequence, Node> intraTrajToNodeMap = new HashMap<CoordinateArraySequence, Node>();
     
-    public Map<Node, ArrayList<CoordinateArraySequence>> nodeToIntraTrajsMap = new HashMap<Node, ArrayList<CoordinateArraySequence>>();
-    public Map<Node, Integer> nodeToAllTrajsCount = new HashMap<Node, Integer>();
-    public Map<Node, ArrayList<Integer>> nodeToIntraTrajsIdMap = new HashMap<Node, ArrayList<Integer>>();
-    public Map<Node, QuadTree> nodeToIntraTrajQuadTree = new HashMap<Node, QuadTree>();
+    //public Map<Node, ArrayList<CoordinateArraySequence>> nodeToIntraTrajsMap = new HashMap<Node, ArrayList<CoordinateArraySequence>>();
+    // maintaining a map of trajectories contained in qNode, this is analogous to the block number of the trajectory
+    public Map<Node, ArrayList<CoordinateArraySequence>> qNodeToTrajsMap;
+    // maintaining a map of number of trajectories contained in qNode, will remove later unless needed
+    public Map<Node, Integer> qNodeTrajsCount;
+    // maintaining a map of trajectory ids contained in qNode, will remove later unless needed
+    public Map<Node, ArrayList<Integer>> qNodeToTrajIdsMap;
+    // the reverse map of qNode to trajectories
+    public Map<CoordinateArraySequence, ArrayList<Node>> trajToQNodesMap;
+    // the reverse map of qNode to trajectory ids
+    public Map<Integer, ArrayList<Node>> trajIdToQNodesMap;
+    // the same item as a list
+    public ArrayList<ArrayList<Node>> trajQNodesList;
     
-    private int blockSize = 128;
+    //private int blockSize = 128;
     
-    private int zOrderNodeCount = 0;
+    //private int zOrderNodeCount = 0;
     
-    public double latCoeff = 0, latConst = 0, lonCoeff = 0, lonConst = 0;
+    //public double latCoeff = 0, latConst = 0, lonCoeff = 0, lonConst = 0;
+    // these coefficients and constants may be needed to get back the actual longitudes, latitudes of trajectories later
+    public double latCoeff, latConst, lonCoeff, lonConst;
     
-    public QuadTrajTree(ArrayList<CoordinateArraySequence> trajectories, double latCoeff, double latConst, double lonCoeff, double lonConst) {
+    public TQIndex(ArrayList<CoordinateArraySequence> trajectories, double latCoeff, double latConst, double lonCoeff, double lonConst) {
         proximity = 0.36848;    /// 0.5km = 0.18424, 1km = 0.36848
         
         this.latCoeff = latCoeff;
@@ -54,6 +65,15 @@ public class QuadTrajTree {
         //System.out.println(proximity);
         
         this.trajectories = trajectories;
+        
+        
+        qNodeToTrajsMap = new HashMap<Node, ArrayList<CoordinateArraySequence>>();
+        qNodeTrajsCount = new HashMap<Node, Integer>();
+        qNodeToTrajIdsMap = new HashMap<Node, ArrayList<Integer>>();
+        trajToQNodesMap = new HashMap<CoordinateArraySequence, ArrayList<Node>>();
+        trajIdToQNodesMap = new HashMap<Integer, ArrayList<Node>>();
+        trajQNodesList = new ArrayList<ArrayList<Node>>();
+        
         Envelope envelope = new Envelope();
         for (CoordinateArraySequence trajectory : trajectories) {
             trajectory.expandEnvelope(envelope);
@@ -105,27 +125,25 @@ public class QuadTrajTree {
     }
 
     private void addTrajectories(ArrayList<CoordinateArraySequence> trajectories, int trajID) {
-        int tqBasicIO = 0;
+        //int tqBasicIO = 0;
         for (int i=0; i<trajectories.size(); i++) {
             CoordinateArraySequence trajectory = trajectories.get(i);
             Node node = addTrajectory(quadTree.getRootNode(), trajectory);
-
+            
+            //System.out.println("Added " + (i+1) + " trajectories to quadtree");
+            
             //System.out.println(trajectory.toString() + node.toString());
             //intraTrajToNodeMap.put(trajectory, node);
 
-            if (!nodeToIntraTrajQuadTree.containsKey(node)) {
-                nodeToIntraTrajsMap.put(node, new ArrayList<CoordinateArraySequence>());
-                nodeToIntraTrajsIdMap.put(node, new ArrayList<Integer>());
-                nodeToIntraTrajQuadTree.put(node, new QuadTree(node.getX(), node.getY(), node.getX() + node.getW(), node.getY() + node.getH()));
+            if (!qNodeToTrajsMap.containsKey(node)) {
+                qNodeToTrajsMap.put(node, new ArrayList<CoordinateArraySequence>());
+                qNodeToTrajIdsMap.put(node, new ArrayList<Integer>());
             }
-            nodeToIntraTrajsMap.get(node).add(trajectory);
+            qNodeToTrajsMap.get(node).add(trajectory);
             ////tqBasicIO++;
-            ////if (nodeToIntraTrajsIdMap.get(node).size()%blockSize == 0) tqBasicIO++;
+            ////if (qNodeToTrajIdsMap.get(node).size()%blockSize == 0) tqBasicIO++;
             //Integer t_id = trajID;
-            nodeToIntraTrajsIdMap.get(node).add(trajID);
-
-            nodeToIntraTrajQuadTree.get(node).set(trajectory.getX(0), trajectory.getY(0), new Pair<Integer, Boolean>(new Integer(trajID), new Boolean(true)));
-            nodeToIntraTrajQuadTree.get(node).set(trajectory.getX(1), trajectory.getY(1), new Pair<Integer, Boolean>(new Integer(trajID), new Boolean(false)));
+            qNodeToTrajIdsMap.get(node).add(trajID);
 
             //System.out.println(trajID + ": <" + trajectory.getX(0) + ", " + trajectory.getY(0) + ">        <" + trajectory.getX(1) + ", " + trajectory.getY(1) + ">");
             trajID++;
@@ -133,6 +151,7 @@ public class QuadTrajTree {
         //System.out.println("TQ-B I/O: " + tqBasicIO);
     }
     
+    /*
     private void addTrajectoriesUpdate(ArrayList<CoordinateArraySequence> trajectories, int trajID) {
         int splitCount = 0;
         int tqBasicIO = 0;
@@ -145,14 +164,14 @@ public class QuadTrajTree {
 
             if (!nodeToIntraTrajQuadTree.containsKey(node)) {
                 ////nodeToIntraTrajsMap.put(node, new ArrayList<CoordinateArraySequence>());
-                ////nodeToIntraTrajsIdMap.put(node, new ArrayList<Integer>());
+                ////qNodeToTrajIdsMap.put(node, new ArrayList<Integer>());
                 nodeToIntraTrajQuadTree.put(node, new QuadTree(node.getX(), node.getY(), node.getX() + node.getW(), node.getY() + node.getH()));
             }
             ////nodeToIntraTrajsMap.get(node).add(trajectory);
             ////tqBasicIO++;
-            ////if (nodeToIntraTrajsIdMap.get(node).size()%blockSize == 0) tqBasicIO++;
+            ////if (qNodeToTrajIdsMap.get(node).size()%blockSize == 0) tqBasicIO++;
             //Integer t_id = trajID;
-            ////nodeToIntraTrajsIdMap.get(node).add(trajID);
+            ////qNodeToTrajIdsMap.get(node).add(trajID);
             
             int newNodes = 0;
             newNodes = nodeToIntraTrajQuadTree.get(node).set(trajectory.getX(0), trajectory.getY(0), new Pair<Integer, Boolean>(new Integer(trajID), new Boolean(true)));
@@ -168,32 +187,37 @@ public class QuadTrajTree {
         //System.out.print(tqBasicIO);
         //System.out.println((trajectories.size() + splitCount));
     }
+    */
 
     private Node addTrajectory(Node node, CoordinateArraySequence trajectory) {
 
         //System.out.println(node);
-        if (nodeToAllTrajsCount.get(node) == null) {
-            nodeToAllTrajsCount.put(node, 0);
+        if (qNodeTrajsCount.get(node) == null) {
+            qNodeTrajsCount.put(node, 0);
         }
-        nodeToAllTrajsCount.put(node, nodeToAllTrajsCount.get(node) + 1);
+        qNodeTrajsCount.put(node, qNodeTrajsCount.get(node) + 1);
 
         Envelope trajEnv = new Envelope();
 
         for (int i = 0; i < trajectory.size(); i++) {
             trajEnv.expandToInclude(trajectory.getCoordinate(i));
         }
+        
         Envelope envNe = getNodeEnvelop(node.getNe());
         if (!envNe.contains(trajEnv) && envNe.intersects(trajEnv)) {
             return node;
         }
+        
         Envelope envNw = getNodeEnvelop(node.getNw());
         if (!envNw.contains(trajEnv) && envNw.intersects(trajEnv)) {
             return node;
         }
+        
         Envelope envSe = getNodeEnvelop(node.getSe());
         if (!envSe.contains(trajEnv) && envSe.intersects(trajEnv)) {
             return node;
         }
+        
         Envelope envSw = getNodeEnvelop(node.getSw());
         if (!envSw.contains(trajEnv) && envSw.intersects(trajEnv)) {
             return node;
@@ -242,7 +266,7 @@ public class QuadTrajTree {
             return empty;
         }
         ArrayList<CoordinateArraySequence> ret = new ArrayList<CoordinateArraySequence>();
-        ArrayList<Integer> retIds = nodeToIntraTrajsIdMap.get(node);
+        ArrayList<Integer> retIds = qNodeToTrajIdsMap.get(node);
         ////ArrayList<Integer> retIds = null;
         for (int i=0; i<retIds.size(); i++){
             ret.add(trajectories.get(retIds.get(i)));
@@ -256,14 +280,14 @@ public class QuadTrajTree {
         if (node == null) {
             return empty;
         }
-        ArrayList<Integer> ret = nodeToIntraTrajsIdMap.get(node);
+        ArrayList<Integer> ret = qNodeToTrajIdsMap.get(node);
         ////ArrayList<Integer> ret = null;
         return ret == null ? empty : ret;
     }
 
     public void draw() {
-        //QuadTrajTreeCanvas quadTrajTreeCanvas = new QuadTrajTreeCanvas(this);
-        //quadTrajTreeCanvas.draw();
+        QuadTrajTreeCanvas quadTrajTreeCanvas = new QuadTrajTreeCanvas(this);
+        quadTrajTreeCanvas.draw();
     }
 
     public QuadTree getQuadTree() {
@@ -295,6 +319,7 @@ public class QuadTrajTree {
         return x*scale + offset;
     }
     
+    /*
     public double evaluateNodeTrajWithIndexBinary(Node qNode, ArrayList<CoordinateArraySequence> facilityQuery, HashSet<Integer> served, ResultPlotter mapView, DiskIO diskIO) {
         if (facilityQuery == null || facilityQuery.isEmpty() || qNode == null) {
             return 0;
@@ -329,10 +354,8 @@ public class QuadTrajTree {
                 
                 for (Node node : nodes) {
                     @SuppressWarnings("unchecked")
-                            
-                    //Point point = node.getPoint();
-                    Point point = null;
-                            
+                    Point point = node.getPoint();
+                    
                     Pair<Integer, Boolean> data = (Pair<Integer, Boolean>) point.getValue();
                     
                     if (!trajSet.contains(data.getValue0())){
@@ -364,9 +387,9 @@ public class QuadTrajTree {
                 }
                 //System.out.println(zOrderedBlockSet.size());
                 //System.out.println(randomBlockSet.size());
-                for (int j=0; j<nodeToIntraTrajsIdMap.get(qNode).size(); j++){
-                    //System.out.println(nodeToIntraTrajsIdMap.get(qNode).get(j));
-                    tqTreeFullListBlockSet.add(nodeToIntraTrajsIdMap.get(qNode).get(j)/blockSize);
+                for (int j=0; j<qNodeToTrajIdsMap.get(qNode).size(); j++){
+                    //System.out.println(qNodeToTrajIdsMap.get(qNode).get(j));
+                    tqTreeFullListBlockSet.add(qNodeToTrajIdsMap.get(qNode).get(j)/blockSize);
                 }
                 diskIO.setValues(diskIO.getOrderedCount()+zOrderedBlockSet.size(), diskIO.getUnorderedCount()+randomBlockSet.size(),
                                 diskIO.getTqTreeCount()+tqTreeFullListBlockSet.size(), nodeToAllTrajsCount.get(qNode)/blockSize);
@@ -387,6 +410,7 @@ public class QuadTrajTree {
         }
         return served.size();
     }
+    */
     
     /*
     private double deNormalize(double x){
@@ -395,6 +419,7 @@ public class QuadTrajTree {
     */
     
     /* For Uniform Service Function */
+    /*
     public double evaluateNodeTrajWithIndexUniform(Node qNode, ArrayList<CoordinateArraySequence> facilityQuery, HashSet<Integer> served, ResultPlotter mapView) {
         if (facilityQuery == null || facilityQuery.isEmpty() || qNode == null) {
             return 0;
@@ -423,8 +448,7 @@ public class QuadTrajTree {
                 Node[] nodes = nodeToIntraTrajQuadTree.get(qNode).searchIntersect(xmin, ymin, xmax, ymax);
 
                 for (Node node : nodes) {
-                    //Point point = node.getPoint();
-                    Point point = null;
+                    Point point = node.getPoint();
                     
                     Pair<Integer, Boolean> data = (Pair<Integer, Boolean>) point.getValue();
                     if (data.getValue1()) { // getValue1() indicates if the point is start or end of a trajectory, true for start, false for end
@@ -536,7 +560,7 @@ public class QuadTrajTree {
             return;
         }
         
-        ////ArrayList <Integer> trajIds = nodeToIntraTrajsIdMap.get(qNode);
+        ////ArrayList <Integer> trajIds = qNodeToTrajIdsMap.get(qNode);
         ArrayList <Integer> trajIds = null;
         
         if (trajIds == null || trajIds.size() == 0) {
@@ -544,13 +568,8 @@ public class QuadTrajTree {
             return;
         }
         
-        //System.out.println(/* qNode + " , interNodeTrajCount = " + */trajIds.size());
+        //System.out.println(/* qNode + " , interNodeTrajCount = " + trajIds.size());
 
-        /*
-        for (Integer id: trajIds){
-            
-        }
-        */
 
         if (qNode.getNe() != null) {
             getAllInterNodeTrajsId(qNode.getNe());
@@ -565,16 +584,17 @@ public class QuadTrajTree {
             getAllInterNodeTrajsId(qNode.getSw());
         }
     }
-
+    */
+    
     /*
-	public double evaluateNodeTrajBruteForce(Node qNode, ArrayList<CoordinateArraySequence> facilityQuery) {
-		if (facilityQuery == null || facilityQuery.isEmpty()) {
-			return 0;
-	    }
-	    ArrayList<CoordinateArraySequence> allTrajs = getQNodeAllTrajs(qNode);
-	    ArrayList<Integer> allTrajIds = getQNodeAllTrajsId(qNode);
-		return calculateCover(allTrajs, allTrajIds, facilityQuery);
-	}*/
+    public double evaluateNodeTrajBruteForce(Node qNode, ArrayList<CoordinateArraySequence> facilityQuery) {
+            if (facilityQuery == null || facilityQuery.isEmpty()) {
+                    return 0;
+        }
+        ArrayList<CoordinateArraySequence> allTrajs = getQNodeAllTrajs(qNode);
+        ArrayList<Integer> allTrajIds = getQNodeAllTrajsId(qNode);
+            return calculateCover(allTrajs, allTrajIds, facilityQuery);
+    }*/
     public double evaluateNodeTraj(Node qNode, ArrayList<CoordinateArraySequence> facilityQuery) {
         
         if (facilityQuery == null || facilityQuery.isEmpty()) {
@@ -727,10 +747,11 @@ public class QuadTrajTree {
         }
         return clippedSubgraphs;
     }
-
+    
+    
     public int getTotalNodeTraj(Node qNode) {
-        if (nodeToAllTrajsCount.get(qNode) != null) {
-            return nodeToAllTrajsCount.get(qNode);
+        if (qNodeTrajsCount.get(qNode) != null) {
+            return qNodeTrajsCount.get(qNode);
         }
         return 0;
     }

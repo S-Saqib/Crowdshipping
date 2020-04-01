@@ -1,5 +1,7 @@
 package ds.qtree;
 
+import java.util.ArrayList;
+
 public class Node {
 
     private double x;
@@ -7,13 +9,16 @@ public class Node {
     private double w;
     private double h;
     private Node opt_parent;
-    private Point point;
-    private NodeType nodetype = NodeType.EMPTY;
+    private ArrayList<Point> points;
+    private final int nodeCapacity;
+    private NodeType nodetype;
     private Node nw;
     private Node ne;
     private Node sw;
     private Node se;
-    long zCode;
+    private long zCode;
+    private int depth;
+    
 
     /**
      * Constructs a new quad tree node.
@@ -25,13 +30,17 @@ public class Node {
      * @param {Node}   opt_parent Optional parent node.
      * @constructor
      */
-    public Node(double x, double y, double w, double h, Node opt_parent, long zCode) {
+    public Node(double x, double y, double w, double h, Node opt_parent, long zCode, int depth) {
+        this.nodetype = NodeType.EMPTY;
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
         this.opt_parent = opt_parent;
         this.zCode = zCode;
+        this.depth = depth;
+        this.points = new ArrayList<Point>();
+        this.nodeCapacity = 2;
     }
 
     public double getX() {
@@ -74,12 +83,12 @@ public class Node {
         this.opt_parent = opt_parent;
     }
 
-    public void setPoint(Point point) {
-        this.point = point;
+    public void setPoints(ArrayList <Point> points) {
+        this.points = points;
     }
 
-    public Point getPoint() {
-        return this.point;
+    public ArrayList<Point> getPoints() {
+        return this.points;
     }
 
     public void setNodeType(NodeType nodetype) {
@@ -128,11 +137,39 @@ public class Node {
     }
     
     public long getZCode(){
-        return this.zCode;
+        return zCode;
+    }
+    
+    public void setDepth(int depth){
+        this.depth = depth;
+    }
+    
+    public int getDepth(){
+        return depth;
+    }
+    
+    public boolean isEmpty(){
+        return points.size()==0;
+    }
+    
+    public boolean hasSpaceForPoint(){
+        return ((points == null) || (points.size() < nodeCapacity));
+    }
+    
+    public Point removePoint(double x, double y){
+        // may have to optimize this later
+        Point removedPoint = null;
+        for (Point point: points){
+            if (point.getX()==x && point.getY()==y){
+                removedPoint = point;
+            }
+        }
+        if (removedPoint != null) points.remove(removedPoint);
+        return removedPoint;
     }
 
-	@Override
-	public String toString() {
-		return "Node [x=" + x + ", y=" + y + ", w=" + w + ", h=" + h + "]";
-	}
+    @Override
+    public String toString() {
+            return "Node [x=" + x + ", y=" + y + ", w=" + w + ", h=" + h + "]";
+    }
 }

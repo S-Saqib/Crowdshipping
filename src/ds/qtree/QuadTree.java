@@ -2,6 +2,7 @@ package ds.qtree;
 
 import java.util.ArrayList;
 import java.util.List;
+import javax.xml.ws.Response;
 
 /**
  * Datastructure: A point Quad Tree for representing 2D data. Each
@@ -14,9 +15,10 @@ public class QuadTree {
 
 
     private Node root_;
-    private int count_ = 0;
-    private int nodeCount = 1;
-    private long zCode = 0;
+    private int count_;
+    private int nodeCount;
+    private long zCode;
+    private int height;
 
     /**
      * Constructs a new quad tree.
@@ -27,7 +29,11 @@ public class QuadTree {
      * @param {double} maxY Maximum y-value that can be held in tree.
      */
     public QuadTree(double minX, double minY, double maxX, double maxY) {
-        this.root_ = new Node(minX, minY, maxX - minX, maxY - minY, null, this.zCode);
+        count_ = 0;
+        nodeCount = 1;
+        zCode = 0;
+        height = 0;
+        this.root_ = new Node(minX, minY, maxX - minX, maxY - minY, null, this.zCode, 0);
         //System.out.println("Constructor Called");
     }
 
@@ -75,7 +81,8 @@ public class QuadTree {
      */
     public Object get(double x, double y, Object opt_default) {
         Node node = this.find(this.root_, x, y);
-        return node != null ? node.getPoint().getValue() : opt_default;
+        //return node != null ? node.getPoint().getValue() : opt_default;
+        return node != null ? node.getPoints() : opt_default;
     }
 
     /**
@@ -89,9 +96,10 @@ public class QuadTree {
     public Object remove(double x, double y) {
         Node node = this.find(this.root_, x, y);
         if (node != null) {
-            Object value = node.getPoint().getValue();
-            node.setPoint(null);
-            node.setNodeType(NodeType.EMPTY);
+            // a node which contains the point is found
+            Object value = node.removePoint(x, y);
+            boolean isEmpty = node.isEmpty();
+            if (isEmpty) node.setNodeType(NodeType.EMPTY);
             this.balance(node);
             this.count_--;
             return value;
@@ -128,6 +136,10 @@ public class QuadTree {
     public int getNodeCount(){
         return this.nodeCount;
     }
+    
+    public int getHeight(){
+        return height;
+    }
 
     /**
      * Removes all items from the tree.
@@ -138,7 +150,7 @@ public class QuadTree {
         this.root_.setSw(null);
         this.root_.setSe(null);
         this.root_.setNodeType(NodeType.EMPTY);
-        this.root_.setPoint(null);
+        this.root_.setPoints(null);
         this.count_ = 0;
     }
 
@@ -150,7 +162,9 @@ public class QuadTree {
         final List<Point> arr = new ArrayList<Point>();
         this.traverse(this.root_, new Func() {
             public void call(QuadTree quadTree, Node node) {
-                arr.add(node.getPoint());
+                for (Point point : node.getPoints()){
+                    arr.add(point);
+                }
             }
         });
         return arr.toArray(new Point[arr.size()]);
@@ -164,7 +178,9 @@ public class QuadTree {
         final List<Object> arr = new ArrayList<Object>();
         this.traverse(this.root_, new Func() {
             public void call(QuadTree quadTree, Node node) {
-                arr.add(node.getPoint().getValue());
+                for (Point point : node.getPoints()){
+                    arr.add(point.getValue());
+                }
             }
         });
 
@@ -175,13 +191,14 @@ public class QuadTree {
         final List<Node> arr = new ArrayList<Node>();
         this.navigate(this.root_, new Func() {
             public void call(QuadTree quadTree, Node node) {
-                Point pt = node.getPoint();
-                if (pt.getX() < xmin || pt.getX() > xmax || pt.getY() < ymin || pt.getY() > ymax) {
-                    // Definitely not within the polygon!
-                } else {
-                    arr.add(node);
+                // the following loop may be optimized if we need not check for all pointes separately by storing additional info
+                for (Point point: node.getPoints()){
+                    if (point.getX() < xmin || point.getX() > xmax || point.getY() < ymin || point.getY() > ymax) {
+                        // Definitely not within the polygon!
+                    } else {
+                        arr.add(node);
+                    }
                 }
-
             }
         }, xmin, ymin, xmax, ymax);
         return arr.toArray(new Node[arr.size()]);
@@ -191,9 +208,10 @@ public class QuadTree {
         final List<Point> arr = new ArrayList<Point>();
         this.navigate(this.root_, new Func() {
             public void call(QuadTree quadTree, Node node) {
-                Point pt = node.getPoint();
-                if (pt.getX() > xmin && pt.getX() < xmax && pt.getY() > ymin && pt.getY() < ymax) {
-                    arr.add(node.getPoint());
+                for (Point point: node.getPoints()){
+                    if (point.getX() > xmin && point.getX() < xmax && point.getY() > ymin && point.getY() < ymax) {
+                        arr.add(point);
+                    }
                 }
             }
         }, xmin, ymin, xmax, ymax);
@@ -242,11 +260,11 @@ public class QuadTree {
         // optimized when/if needed.
         this.traverse(this.root_, new Func() {
             public void call(QuadTree quadTree, Node node) {
-                clone.set(node.getPoint().getX(), node.getPoint().getY(), node.getPoint().getValue());
+                for (Point point: node.getPoints()){
+                    clone.set(point.getX(), point.getY(), point.getValue());
+                }
             }
         });
-
-
         return clone;
     }
 
@@ -288,23 +306,28 @@ public class QuadTree {
      * @private
      */
     public Node find(Node node, double x, double y) {
-        Node resposne = null;
+        Node response = null;
         switch (node.getNodeType()) {
             case EMPTY:
                 break;
 
             case LEAF:
-                resposne = node.getPoint().getX() == x && node.getPoint().getY() == y ? node : null;
+                for (Point point: node.getPoints()){
+                    if (point.getX() == x && point.getY() == y){
+                        response = node;
+                        break;
+                    }
+                }
                 break;
 
             case POINTER:
-                resposne = this.find(this.getQuadrantForPoint(node, x, y), x, y);
+                response = this.find(this.getQuadrantForPoint(node, x, y), x, y);
                 break;
 
             default:
                 throw new QuadTreeException("Invalid nodeType");
         }
-        return resposne;
+        return response;
     }
     
     /**
@@ -325,18 +348,31 @@ public class QuadTree {
                 result = 0;
                 break;
             case LEAF:
-                if (parent.getPoint().getX() == point.getX() && parent.getPoint().getY() == point.getY()) {
-                    this.setPointForNode(parent, point);
-                    result = 0;
-                } else {
-                    this.split(parent);
-                    this.insert(parent, point);
-                    result = 1;
+                for (Point pt: parent.getPoints()){
+                    if (pt.getX() == point.getX() && pt.getY() == point.getY()) {
+                        //this.setPointForNode(parent, point);
+                        result = -1;    // indicates found
+                        break;
+                    }
+                }
+                if (result != -1) {
+                    if (!parent.hasSpaceForPoint()){
+                        //System.out.println("Trouble!!");
+                        this.split(parent);
+                        this.insert(parent, point);
+                        result = 1;
+                    }
+                    else{
+                        //System.out.println("Cool!!");
+                        this.setPointForNode(parent, point);
+                    }
+                }
+                else{
+                    result = 0;     // result = -1 reverted
                 }
                 break;
             case POINTER:
-                result = this.insert(
-                        this.getQuadrantForPoint(parent, point.getX(), point.getY()), point);
+                result = this.insert(this.getQuadrantForPoint(parent, point.getX(), point.getY()), point);
                 break;
 
             default:
@@ -352,8 +388,8 @@ public class QuadTree {
      * @private
      */
     private void split(Node node) {
-        Point oldPoint = node.getPoint();
-        node.setPoint(null);
+        ArrayList <Point> oldPoints = new ArrayList<Point>(node.getPoints());
+        node.setPoints(null);
 
         node.setNodeType(NodeType.POINTER);
         
@@ -365,13 +401,18 @@ public class QuadTree {
         double y = node.getY();
         double hw = node.getW() / 2;
         double hh = node.getH() / 2;
+        
+        int childDepth = node.getDepth() + 1;
+        height = Integer.max(height, childDepth);
 
-        node.setNw(new Node(x, y, hw, hh, node, lastChildZCode-3));
-        node.setNe(new Node(x + hw, y, hw, hh, node, lastChildZCode-2));
-        node.setSw(new Node(x, y + hh, hw, hh, node, lastChildZCode-1));
-        node.setSe(new Node(x + hw, y + hh, hw, hh, node, lastChildZCode));
+        node.setNw(new Node(x, y, hw, hh, node, lastChildZCode-3, childDepth));
+        node.setNe(new Node(x + hw, y, hw, hh, node, lastChildZCode-2, childDepth));
+        node.setSw(new Node(x, y + hh, hw, hh, node, lastChildZCode-1, childDepth));
+        node.setSe(new Node(x + hw, y + hh, hw, hh, node, lastChildZCode, childDepth));
 
-        this.insert(node, oldPoint);
+        for (Point point: oldPoints){
+            this.insert(node, point);
+        }
         
         this.nodeCount += 3;
     }
@@ -441,7 +482,7 @@ public class QuadTree {
                     node.setNe(null);
                     node.setSw(null);
                     node.setSe(null);
-                    node.setPoint(firstLeaf.getPoint());
+                    node.setPoints(firstLeaf.getPoints());
                 }
 
                 // Try and balance the parent as well.
@@ -484,6 +525,9 @@ public class QuadTree {
             throw new QuadTreeException("Can not set point for node of type POINTER");
         }
         node.setNodeType(NodeType.LEAF);
-        node.setPoint(point);
+        ArrayList <Point> points= node.getPoints();
+        if (points == null) points = new ArrayList<Point>();
+        points.add(point);
+        node.setPoints(points);
     }
 }
