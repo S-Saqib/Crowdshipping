@@ -16,6 +16,7 @@ import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 import com.vividsolutions.jts.util.Assert;
 
 import ds.qtree.Node;
+import ds.qtree.NodeType;
 import ds.qtree.Point;
 import ds.qtree.QuadTree;
 import result.ResultPlotter;
@@ -196,7 +197,11 @@ public class TQIndex {
             qNodeTrajsCount.put(node, 0);
         }
         qNodeTrajsCount.put(node, qNodeTrajsCount.get(node) + 1);
-
+        
+        if (node.getNodeType() == NodeType.LEAF){
+            return node;
+        }
+        
         Envelope trajEnv = new Envelope();
 
         for (int i = 0; i < trajectory.size(); i++) {

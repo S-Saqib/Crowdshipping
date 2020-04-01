@@ -30,8 +30,8 @@ public class Statistics {
         int nodeCount = quadTrajTree.getQuadTree().getNodeCount();
         int nodesHavingTrajectories = quadTrajTree.qNodeToTrajsMap.size();
             
-        int []depthWiseNodeCount = new int [20];
-        int []depthWiseTrajCount = new int[20];
+        int []depthWiseNodeCount = new int [quadTrajTree.getQuadTree().getHeight()+1];
+        int []depthWiseTrajCount = new int[quadTrajTree.getQuadTree().getHeight()+1];
         Arrays.fill(depthWiseNodeCount, 0);
         Arrays.fill(depthWiseTrajCount, 0);
 
@@ -42,7 +42,9 @@ public class Statistics {
             depthWiseTrajCount[node.getDepth()] += trajectories.size();
         }
         
-        System.out.println("Number of trajs = " + trajCount + ", number of qNodes = " + nodeCount + ", number of total qNodes having trajs = " + nodesHavingTrajectories);
+        System.out.println("Number of trajectories = " + trajCount);
+        System.out.println("Number of total qNodes = " + nodeCount);
+        System.out.println("Number of qNodes having trajs = " + nodesHavingTrajectories);
         
         System.out.println("QuadTree height = " + quadTrajTree.getQuadTree().getHeight());
         

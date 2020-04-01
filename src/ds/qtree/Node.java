@@ -40,7 +40,7 @@ public class Node {
         this.zCode = zCode;
         this.depth = depth;
         this.points = new ArrayList<Point>();
-        this.nodeCapacity = 2;
+        this.nodeCapacity = 64;
     }
 
     public double getX() {
@@ -89,6 +89,11 @@ public class Node {
 
     public ArrayList<Point> getPoints() {
         return this.points;
+    }
+    
+    public void addPoint(Point point){
+        if (this.points == null) this.points = new ArrayList<Point>();
+        this.points.add(point);
     }
 
     public void setNodeType(NodeType nodetype) {
