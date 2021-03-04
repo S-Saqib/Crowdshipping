@@ -4,12 +4,12 @@ import java.util.ArrayList;
 
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
-import ds.qtrajtree.QuadTrajTree;
+//import ds.qtrajtree.QuadTrajTree;
 import java.util.HashSet;
 import query.QueryGraphGenerator;
 
 public class TestServiceQuery {
-
+/*
     public static void run(QuadTrajTree quadTrajTree, ArrayList<CoordinateArraySequence> facilityGraph) {
 
         QueryGraphGenerator newQuery = new QueryGraphGenerator();
@@ -33,6 +33,7 @@ public class TestServiceQuery {
                 continue;
             }
             */
+/*
             zOrderTime += (to - from) / 1e9;
             //System.out.println("Brute Force:");
             //from = System.nanoTime();
@@ -46,4 +47,5 @@ public class TestServiceQuery {
         zOrderTime /= numberOfRuns;
         System.out.println (naiveTime + "\n" + zOrderTime);
     }
+*/
 }

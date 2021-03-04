@@ -5,9 +5,9 @@
  */
 package crowdshipping;
 
-import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 import ds.qtrajtree.TQIndex;
 import ds.qtree.Node;
+import ds.trajectory.Trajectory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
@@ -18,27 +18,27 @@ import java.util.Map;
  */
 public class Statistics {
 
-    private TQIndex quadTrajTree;
+    private final TQIndex quadTrajTree;
     
     public Statistics(TQIndex tQIndex) {
-        quadTrajTree = tQIndex;
+        this.quadTrajTree = tQIndex;
     }
     
     public void printStats(){
         
         int trajCount = quadTrajTree.getTotalNodeTraj(quadTrajTree.getQuadTree().getRootNode());
         int nodeCount = quadTrajTree.getQuadTree().getNodeCount();
-        int nodesHavingTrajectories = quadTrajTree.qNodeToTrajsMap.size();
+        int nodesHavingTrajectories = quadTrajTree.qNodeToAnonymizedTrajIdsMap.size();
             
         int []depthWiseNodeCount = new int [quadTrajTree.getQuadTree().getHeight()+1];
         int []depthWiseTrajCount = new int[quadTrajTree.getQuadTree().getHeight()+1];
         Arrays.fill(depthWiseNodeCount, 0);
         Arrays.fill(depthWiseTrajCount, 0);
 
-        for (Map.Entry<Node, ArrayList<CoordinateArraySequence>> entry : quadTrajTree.qNodeToTrajsMap.entrySet()) {
+        for (Map.Entry<Node, ArrayList<String>> entry : quadTrajTree.qNodeToAnonymizedTrajIdsMap.entrySet()) {
             Node node = entry.getKey();
             depthWiseNodeCount[node.getDepth()]++;
-            ArrayList<CoordinateArraySequence> trajectories = entry.getValue();
+            ArrayList<Trajectory> trajectories = quadTrajTree.getQNodeTrajs(node);
             depthWiseTrajCount[node.getDepth()] += trajectories.size();
         }
         
@@ -52,5 +52,10 @@ public class Statistics {
             System.out.println("Depth = " + i + " : Node Count = " + depthWiseNodeCount[i] + " , Trajectory Count = " + depthWiseTrajCount[i]);
         }
         
+        double maxLat = quadTrajTree.getMaxLat();
+        double maxLon = quadTrajTree.getMaxLon();
+        double minLat = quadTrajTree.getMinLat();
+        double minLon = quadTrajTree.getMinLon();
+        System.out.println("Max Latitude = " + maxLat + " Max Longitude = " + maxLon + ", Min Latitude = " + minLat + " Min Longitude = " + minLon);
     }
 }

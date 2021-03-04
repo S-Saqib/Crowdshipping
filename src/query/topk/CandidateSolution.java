@@ -5,14 +5,14 @@ import java.util.Comparator;
 
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
-import ds.qtrajtree.QuadTrajTree;
+//import ds.qtrajtree.QuadTrajTree;
 import ds.qtree.Node;
 import ds.qtree.NodeType;
 import java.util.HashSet;
 import result.ResultPlotter;
 
 public class CandidateSolution {
-
+/*
     ArrayList<ArrayList<CoordinateArraySequence>> routeGraphs = new ArrayList<ArrayList<CoordinateArraySequence>>();
     ArrayList<Node> qNodes = new ArrayList<Node>();
     QuadTrajTree quadTrajTree;
@@ -113,6 +113,7 @@ public class CandidateSolution {
     }
     
     /* For Uniform Service Function */
+/*
     boolean relaxStateUniform(ResultPlotter mapView) {
         ArrayList<ArrayList<CoordinateArraySequence>> newRouteGraphs = new ArrayList<ArrayList<CoordinateArraySequence>>();
         ArrayList<Node> newQNodes = new ArrayList<Node>();
@@ -163,7 +164,7 @@ public class CandidateSolution {
         qNodes = newQNodes;
         return true;
     }
-    
+*/    
 }
 /*
 class SolutionComparator implements Comparator<CandidateSolution> {

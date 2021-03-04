@@ -11,15 +11,20 @@ import java.util.ArrayList;
 import java.util.Map.Entry;
 
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
+import db.TrajStorage;
 
-import ds.qtrajtree.QuadTrajTree;
 import ds.qtrajtree.TQIndex;
 import ds.qtree.Node;
+import ds.trajectory.Trajectory;
 import io.real.InputParser;
 
 import io.real.SimpleParser;
+import io.real.TrajProcessor;
+import java.io.FileNotFoundException;
+import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -29,68 +34,38 @@ import query.topk.TestBestKQuery;
 
 public class CrowdShipping {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, FileNotFoundException, ParseException {
 
+        String trajFilePath = "../Data/Myki/2018_June_Last_Week_Trips_All_Days.txt";
+        String stopFile1Path = "../Data/Myki/my_stop_locations.txt";
+        String stopFile2Path = "../Data/Myki/stop_locations.txt";
+        
+        TrajProcessor trajProcessor = new TrajProcessor();
         //System.out.println(System.getProperty("user.dir"));
-        //String routeFilePath = "../../maxtrajcover/src/main/resources/io/real/routelist.xlsx";
-        //String userTrajectoryFilePath = "../../maxtrajcover/src/main/resources/io/real/staypoints.xlsx";
-        String routeFilePath = "E:\\Education\\Academic\\BUET\\Educational\\Departmental\\4-2\\Thesis\\Data\\New York\\Facility\\NYC_transport\\NYC_routes.txt";
-        String stoppageFilePath = "E:\\Education\\Academic\\BUET\\Educational\\Departmental\\4-2\\Thesis\\Data\\New York\\Facility\\NYC_transport\\NYC_stopid.txt";
-        String userTrajectoryFilePath = "E:\\Education\\Academic\\BUET\\Educational\\Departmental\\4-2\\Thesis\\Data\\New York\\Taxi\\user_traj_for_temporal_processing.csv";
         
-        File routeFile = new File(routeFilePath);
-        File userTrajectoryFile = new File(userTrajectoryFilePath);
-
-
-        //System.out.println(routeFile.exists());
-        //System.out.println(userTrajectoryFile.exists());
-        //InputParser inParser = new InputParser();
-        SimpleParser inParser = new SimpleParser();
-
-        //System.out.println("Route File Found: "+ routeFile.exists());
-        //System.out.println("Trajectory File Found: "+ userTrajectoryFile.exists());
+        trajProcessor.loadStoppageData(stopFile1Path);
+        trajProcessor.loadStoppageData(stopFile2Path);
+        trajProcessor.loadTrajectories(trajFilePath);
+        //trajProcessor.printTrajs();
+        //trajProcessor.printSummary();
+        trajProcessor.excludeWeekendUserIds();
+        trajProcessor.normalizeTrajectories();
+        //trajProcessor.printSummary();
+        //trajProcessor.printTrajs(5);
+        //trajProcessor.printNormalizedTrajs(5);
+        //trajProcessor.printInfo();
         
-        /*
-        if(!routeFile.exists() || !userTrajectoryFile.exists()) {
-            System.exit(0);
-        }
-        */
+        // create an object of TrajStorage to imitate database functionalities
+        TrajStorage trajStorage = new TrajStorage(trajProcessor.getTrajIdToNormalizedTrajMap(),trajProcessor.getTrajIdToTrajMap());
         
-        
-        ArrayList<CoordinateArraySequence> userTrajectories = null;
-        ArrayList<CoordinateArraySequence> facilityGraph = null;
-
-        userTrajectories = new ArrayList<CoordinateArraySequence>(inParser.parseUserTrajectories(userTrajectoryFilePath));
-        //System.out.println(inParser.minLat+"\t"+inParser.maxLat+"\t"+inParser.minLon+"\t"+inParser.maxLon);
-        facilityGraph = new ArrayList<CoordinateArraySequence>(inParser.parseRoutes(stoppageFilePath, routeFilePath));
-        
-        routeFile = null;
-        userTrajectoryFile = null;
-        
-        double indexTime = 0;
-        int numberOfRuns = 10;
-        
-        /*
-        try {
-            //System.out.println(userTrajectories.size());
-            Thread.sleep(10000);
-        } catch (InterruptedException ex) {
-            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
-        for (int i=0; i<numberOfRuns; i++){
-            
-            Collections.shuffle(userTrajectories);
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-            }
-          */  
-            //QuadTrajTree quadTrajTree = new QuadTrajTree(userTrajectories, inParser.latCoeff, inParser.latConst, inParser.lonCoeff, inParser.lonConst);
-            TQIndex quadTrajTree = new TQIndex(userTrajectories, inParser.latCoeff, inParser.latConst, inParser.lonCoeff, inParser.lonConst);
-            Statistics stats = new Statistics(quadTrajTree);
-            stats.printStats();
+        // build index on the trajectory data (assuming we have all of it in memory)
+        int timeWindowInSec = 15*60;
+            TQIndex quadTrajTree = new TQIndex(trajStorage, trajProcessor.getLatCoeff(), trajProcessor.getLatConst(),
+                                                trajProcessor.getLonCoeff(), trajProcessor.getLonConst(), 
+                                                trajProcessor.getMaxLat(), trajProcessor.getMaxLon(), trajProcessor.getMinLat(), trajProcessor.getMinLon(),
+                                                trajProcessor.getMinTimeInSec(), timeWindowInSec);
+            //Statistics stats = new Statistics(quadTrajTree);
+            //stats.printStats();
             //System.out.println(userTrajectories.size());
             //quadTrajTree = null;
             //quadTrajTree.getAllInterNodeTrajsId(quadTrajTree.getQuadTree().getRootNode());
@@ -121,7 +96,7 @@ public class CrowdShipping {
 
         //RandomGenerator randomGenerator = new RandomGenerator();
         //QuadTrajTree quadTrajTree = new QuadTrajTree(randomGenerator.generateTrajectory(10));		
-        quadTrajTree.draw();
+        //quadTrajTree.draw();
     }
 
 }

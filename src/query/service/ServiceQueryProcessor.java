@@ -7,7 +7,7 @@ package query.service;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
-import ds.qtrajtree.QuadTrajTree;
+//import ds.qtrajtree.QuadTrajTree;
 import ds.qtree.Node;
 import ds.qtree.NodeType;
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ import query.topk.DiskIO;
  * @author Saqib
  */
 public class ServiceQueryProcessor {
-
+/*
     QuadTrajTree quadTrajTree;
 
     public ServiceQueryProcessor(QuadTrajTree quadTrajTree) {
@@ -63,5 +63,5 @@ public class ServiceQueryProcessor {
         //return serviceValue;
         return served.size();
     }
-
+*/
 }

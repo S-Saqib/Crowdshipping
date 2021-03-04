@@ -1,6 +1,8 @@
 package ds.qtree;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 
 public class Node {
 
@@ -9,8 +11,8 @@ public class Node {
     private double w;
     private double h;
     private Node opt_parent;
-    private ArrayList<Point> points;
     private final int nodeCapacity;
+    private int pointCount;
     private NodeType nodetype;
     private Node nw;
     private Node ne;
@@ -18,6 +20,7 @@ public class Node {
     private Node se;
     private long zCode;
     private int depth;
+    private HashMap<Integer, HashSet<Object>> timeBucketToDiskBlockIdMap;
     
 
     /**
@@ -30,17 +33,18 @@ public class Node {
      * @param {Node}   opt_parent Optional parent node.
      * @constructor
      */
-    public Node(double x, double y, double w, double h, Node opt_parent, long zCode, int depth) {
+    public Node(double x, double y, double w, double h, Node opt_parent, int depth) {
         this.nodetype = NodeType.EMPTY;
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
         this.opt_parent = opt_parent;
-        this.zCode = zCode;
         this.depth = depth;
-        this.points = new ArrayList<Point>();
-        this.nodeCapacity = 64;
+        this.pointCount = 0;
+        this.nodeCapacity = 32;
+        this.timeBucketToDiskBlockIdMap = new HashMap<Integer, HashSet<Object>>();
+        this.zCode = -1;
     }
 
     public double getX() {
@@ -81,19 +85,6 @@ public class Node {
 
     public void setParent(Node opt_parent) {
         this.opt_parent = opt_parent;
-    }
-
-    public void setPoints(ArrayList <Point> points) {
-        this.points = points;
-    }
-
-    public ArrayList<Point> getPoints() {
-        return this.points;
-    }
-    
-    public void addPoint(Point point){
-        if (this.points == null) this.points = new ArrayList<Point>();
-        this.points.add(point);
     }
 
     public void setNodeType(NodeType nodetype) {
@@ -153,24 +144,47 @@ public class Node {
         return depth;
     }
     
+    public void setPointCount(int pointCount){
+        this.pointCount = pointCount;
+    }
+    
+    public int getPointCount(){
+        return pointCount;
+    }
+    
+    public void incPointCount(){
+        pointCount++;
+    }
+    
     public boolean isEmpty(){
-        return points.size()==0;
+        return (pointCount == 0);
     }
     
     public boolean hasSpaceForPoint(){
-        return ((points == null) || (points.size() < nodeCapacity));
+        return (pointCount < nodeCapacity);
     }
     
-    public Point removePoint(double x, double y){
-        // may have to optimize this later
-        Point removedPoint = null;
-        for (Point point: points){
-            if (point.getX()==x && point.getY()==y){
-                removedPoint = point;
-            }
+    public void clearTimeBucketToDiskBlockIdMap(){
+        this.timeBucketToDiskBlockIdMap.clear();
+    }
+    
+    public void addTimeKey(int timeBucket){
+        if (timeBucket < 0) return;
+        if (!timeBucketToDiskBlockIdMap.containsKey(new Integer(timeBucket))){
+            timeBucketToDiskBlockIdMap.put(timeBucket, new HashSet<Object>());
         }
-        if (removedPoint != null) points.remove(removedPoint);
-        return removedPoint;
+    }
+    
+    public void addDiskBlockId(int timeBucket, Object diskBlockId){
+        if (timeBucket < 0) return;
+        addTimeKey(timeBucket);
+        timeBucketToDiskBlockIdMap.get(timeBucket).add(diskBlockId);
+    }
+    
+    public ArrayList<Object> getDiskBlocksByQNodeTimeIndex(int timeBucket){
+        if (timeBucket < 0) return null;
+        if (!timeBucketToDiskBlockIdMap.containsKey(timeBucket)) return null;
+        return new ArrayList<Object>(timeBucketToDiskBlockIdMap.get(timeBucket));
     }
 
     @Override

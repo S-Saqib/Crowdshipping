@@ -2,3 +2,6 @@
 /build.xml
 /manifest.mf
 /nbproject/build-impl.xml
+/nbproject/private/
+/build/
+/dist/

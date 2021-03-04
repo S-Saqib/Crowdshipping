@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
-import ds.qtrajtree.QuadTrajTree;
+//import ds.qtrajtree.QuadTrajTree;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.PriorityQueue;
@@ -16,7 +16,7 @@ public class TestBestKQuery {
 
     static int N = 1;
     static int K = 1;
-
+/*
     public static void run(QuadTrajTree quadTrajTree, ArrayList<CoordinateArraySequence> facilityGraph) {
         ArrayList<ArrayList<CoordinateArraySequence>> facilityQueries = new ArrayList<ArrayList<CoordinateArraySequence>>();
 
@@ -56,7 +56,7 @@ public class TestBestKQuery {
             /* For Uniform Service Function */
             
             ///ArrayList<CandidateSolution> candidateSolutionsUniformService = processQuery.bestKFacilitiesUniformService(facilityQueries, K, mapView);
-            
+/*            
             int usersServed = (int)candidateSolutionsBinaryService.get(0).fitness();
             if (usersServed == 0){
                 ///System.out.println("Retry...");
@@ -128,6 +128,7 @@ public class TestBestKQuery {
             }
             mapView.draw();
             */
+/*
         }
         //naiveTime /= numberOfRuns;
         zOrderTime /= numberOfRuns;
@@ -137,11 +138,11 @@ public class TestBestKQuery {
         tqTreeBlockCount /= numberOfRuns;
         naiveBlockCount /= numberOfRuns;
         */
-        
+    
         //naiveBlockCount = (long)(tqTreeBlockCount * (2.777 + 0.001*(1 - 2*Math.random())));
         //System.out.println(ordered + "\t" + /*unordered + "\t" +*/ tqTreeBlockCount + "\t" + naiveBlockCount);
         //System.out.println(naiveTime + "\t" + zOrderTime);
         //System.out.println(unordered);
         //System.out.println (zOrderTime);
-    }
+//    }
 }

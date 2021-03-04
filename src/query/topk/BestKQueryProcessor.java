@@ -5,7 +5,7 @@ import java.util.PriorityQueue;
 
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
-import ds.qtrajtree.QuadTrajTree;
+//import ds.qtrajtree.QuadTrajTree;
 import java.util.Comparator;
 import java.util.HashSet;
 import query.service.ServiceQueryProcessor;
@@ -37,7 +37,7 @@ class facilityServiceComparator implements Comparator<serviceByFacilities> {
 }
 
 public class BestKQueryProcessor {
-
+/*
     QuadTrajTree quadTrajTree;
 
     public BestKQueryProcessor(QuadTrajTree quadTrajTree) {
@@ -86,6 +86,7 @@ public class BestKQueryProcessor {
     }
     
     /* For Uniform Service Function */
+/*
     ArrayList<CandidateSolution> bestKFacilitiesUniformService(ArrayList<ArrayList<CoordinateArraySequence>> routeGraphs, int k, ResultPlotter mapView) {
 
         double from, to;
@@ -152,4 +153,5 @@ public class BestKQueryProcessor {
         }
         return ret;
     }
+*/
 }
