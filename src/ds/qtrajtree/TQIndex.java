@@ -18,6 +18,7 @@ import db.TrajStorage;
 import ds.qtree.Node;
 import ds.qtree.NodeType;
 import ds.qtree.QuadTree;
+import ds.qtree.SummaryQuadTree;
 import ds.rtree.Rtree;
 import ds.trajectory.TrajPoint;
 import ds.trajectory.Trajectory;
@@ -26,6 +27,8 @@ import java.util.TreeSet;
 public class TQIndex {
 
     private final QuadTree quadTree;
+    
+    private SummaryQuadTree sqTree;
     
     private final TrajStorage trajStorage;
     
@@ -72,6 +75,9 @@ public class TQIndex {
         
         quadTree = new QuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec);    // since trajectories are already normalized in this range
         
+        int pointsInSummaryNode = 0;
+        sqTree = new SummaryQuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec, pointsInSummaryNode);
+        
         // now read data in chunks and build the first level quadtree
         ArrayList<Trajectory> trajectories = this.trajStorage.getNextChunkAsList();
         while(trajectories != null){
@@ -84,6 +90,7 @@ public class TQIndex {
                     Coordinate trajPointLocation = trajPoint.getPointLocation();
                     long trajPointTimeInSec = trajPoint.getTimeInSec();
                     quadTree.set(trajPointLocation.x, trajPointLocation.y, trajPointTimeInSec, new Integer(pointCount++), new String(anonymizedTrajId));
+                    // sqTree.set(trajPointLocation.x, trajPointLocation.y, trajPointTimeInSec, new Integer(pointCount++), new String(anonymizedTrajId));
                 }
             }
             trajectories = this.trajStorage.getNextChunkAsList();
@@ -98,7 +105,6 @@ public class TQIndex {
         trajStorage.setTrajIdToDiskBlockIdMap(rTree.getTrajectoryToLeafMapping());
         quadTree.tagDiskBlockIdsToNodes(quadTree.getRootNode());
         trajStorage.setDiskBlockIdToTrajIdListMap();
-        trajStorage.clearQNodeToPointListMap();
         
         /* need to work on the following part for (Q^2)R tree
         // cursor set to beginning automatically, so reading next chunk will not return null
@@ -107,7 +113,43 @@ public class TQIndex {
             addTrajectories(trajectories);
             trajectories = this.trajStorage.getNextChunkAsList();
         }
-        */
+        */        
+        trajStorage.clearQNodeToPointListMap();
+    }
+    
+    public void buildSummaryIndex(int pointsInSummaryNode){
+        sqTree = new SummaryQuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec, pointsInSummaryNode);
+        trajStorage.resetSummaryTrajData();
+        // now read data in chunks and build the first level quadtree
+        ArrayList<Trajectory> trajectories = this.trajStorage.getNextChunkAsList();
+        while(trajectories != null){
+            for (Trajectory trajectory : trajectories) {
+                //System.out.println("Processing trajectory for summary index...");
+                TreeSet <TrajPoint> trajPointList = trajectory.getPointList();
+                int pointCount = 0;
+                // long trajId = trajectory.getUserId();
+                String anonymizedTrajId = trajectory.getAnonymizedId();
+                for (TrajPoint trajPoint: trajPointList) {
+                    Coordinate trajPointLocation = trajPoint.getPointLocation();
+                    long trajPointTimeInSec = trajPoint.getTimeInSec();
+                    sqTree.set(trajPointLocation.x, trajPointLocation.y, trajPointTimeInSec, new Integer(pointCount++), new String(anonymizedTrajId));
+                }
+            }
+            trajectories = this.trajStorage.getNextChunkAsList();
+        }
+        sqTree.assignZCodesToLeaves(sqTree.getRootNode(), 0);
+        sqTree.transformTrajSummary(sqTree.getRootNode());
+        sqTree.buildSummaryNetwork();
+        
+        trajStorage.clearQNodeToPointListMap();
+    }
+    
+    public void printSummaryIndex(){
+        sqTree.printSummaryGraph();
+    }
+    
+    public void printSummaryIndexSummary(){
+        sqTree.printSummaryGraphSummary();
     }
     
     private void addTrajectories(ArrayList<Trajectory> trajectories) {

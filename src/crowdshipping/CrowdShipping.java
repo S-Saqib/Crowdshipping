@@ -60,13 +60,51 @@ public class CrowdShipping {
         
         // build index on the trajectory data (assuming we have all of it in memory)
         int timeWindowInSec = 15*60;
+            long from = System.nanoTime();
             TQIndex quadTrajTree = new TQIndex(trajStorage, trajProcessor.getLatCoeff(), trajProcessor.getLatConst(),
                                                 trajProcessor.getLonCoeff(), trajProcessor.getLonConst(), 
                                                 trajProcessor.getMaxLat(), trajProcessor.getMaxLon(), trajProcessor.getMinLat(), trajProcessor.getMinLon(),
                                                 trajProcessor.getMinTimeInSec(), timeWindowInSec);
+            System.out.println("TQ-tree construction time = " + (System.nanoTime()-from)/1.0e9);
             //Statistics stats = new Statistics(quadTrajTree);
             //stats.printStats();
             //System.out.println(userTrajectories.size());
+            from = System.nanoTime();
+            quadTrajTree.buildSummaryIndex(100);
+            System.out.println("Summary index (100 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
+            //quadTrajTree.printSummaryIndex();
+            quadTrajTree.printSummaryIndexSummary();
+            
+            from = System.nanoTime();
+            quadTrajTree.buildSummaryIndex(200);
+            System.out.println("Summary index (200 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
+            //quadTrajTree.printSummaryIndex();
+            quadTrajTree.printSummaryIndexSummary();
+            
+            from = System.nanoTime();
+            quadTrajTree.buildSummaryIndex(500);
+            System.out.println("Summary index (500 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
+            //quadTrajTree.printSummaryIndex();
+            quadTrajTree.printSummaryIndexSummary();
+            
+            from = System.nanoTime();
+            quadTrajTree.buildSummaryIndex(1000);
+            System.out.println("Summary index (1000 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
+            //quadTrajTree.printSummaryIndex();
+            quadTrajTree.printSummaryIndexSummary();
+            
+            from = System.nanoTime();
+            quadTrajTree.buildSummaryIndex(2000);
+            System.out.println("Summary index (2000 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
+            //quadTrajTree.printSummaryIndex();
+            quadTrajTree.printSummaryIndexSummary();
+            
+            from = System.nanoTime();
+            quadTrajTree.buildSummaryIndex(5000);
+            System.out.println("Summary index (5000 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
+            //quadTrajTree.printSummaryIndex();
+            quadTrajTree.printSummaryIndexSummary();
+            
             //quadTrajTree = null;
             //quadTrajTree.getAllInterNodeTrajsId(quadTrajTree.getQuadTree().getRootNode());
         /*

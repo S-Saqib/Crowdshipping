@@ -46,6 +46,21 @@ public class Node {
         this.timeBucketToDiskBlockIdMap = new HashMap<Integer, HashSet<Object>>();
         this.zCode = -1;
     }
+    
+    // added to support summary index
+    public Node(double x, double y, double w, double h, Node opt_parent, int depth, int nodeCapacity) {
+        this.nodetype = NodeType.EMPTY;
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.opt_parent = opt_parent;
+        this.depth = depth;
+        this.pointCount = 0;
+        this.nodeCapacity = nodeCapacity;
+        this.timeBucketToDiskBlockIdMap = new HashMap<Integer, HashSet<Object>>();
+        this.zCode = -1;
+    }
 
     public double getX() {
         return x;

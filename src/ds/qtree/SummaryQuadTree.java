@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import javax.xml.ws.Response;
+import java.util.Map;
 
 /**
  * Datastructure: A point Quad Tree for representing 2D data. Each
@@ -16,7 +16,7 @@ import javax.xml.ws.Response;
  * The implementation currently requires pre-determined bounds for data as it
  * can not rebalance itself to that degree.
  */
-public class QuadTree {
+public class SummaryQuadTree {
 
 
     private Node root_;
@@ -27,6 +27,9 @@ public class QuadTree {
     private TrajStorage trajStorage;
     private long minTimeInSec;
     private int timeWindowInSec;
+    private int nodeCapacity;
+    private HashMap<Long, HashMap<Long,Integer>> summaryGraph;
+    // first key = from where, second key = to where, second value = using how many trajs
     
     /**
      * Constructs a new quad tree.
@@ -36,15 +39,17 @@ public class QuadTree {
      * @param {double} maxX Maximum x-value that can be held in tree.
      * @param {double} maxY Maximum y-value that can be held in tree.
      */
-    public QuadTree(TrajStorage trajStorage, double minX, double minY, double maxX, double maxY, long minTimeInSec, int timeWindowInSec) {
+    public SummaryQuadTree(TrajStorage trajStorage, double minX, double minY, double maxX, double maxY, long minTimeInSec, int timeWindowInSec, int nodeCapacity) {
         count_ = 0;
         nodeCount = 1;
         zCode = 0;
         height = 0;
         this.trajStorage = trajStorage;
-        this.root_ = new Node(minX, minY, maxX - minX, maxY - minY, null, 0);
+        this.root_ = new Node(minX, minY, maxX - minX, maxY - minY, null, 0, nodeCapacity);
         this.minTimeInSec = minTimeInSec;
         this.timeWindowInSec = timeWindowInSec;
+        this.nodeCapacity = nodeCapacity;
+        summaryGraph = new HashMap<>();
     }
 
     /**
@@ -132,8 +137,8 @@ public class QuadTree {
      */
     public Point[] getKeys() {
         final List<Point> arr = new ArrayList<Point>();
-        this.traverse(this.root_, new Func() {
-            public void call(QuadTree quadTree, Node node) {
+        this.traverse(this.root_, new Func_si() {
+            public void call(SummaryQuadTree quadTree, Node node) {
                 for (Point point : trajStorage.getPointsFromQNode(node)){
                     arr.add(point);
                 }
@@ -148,8 +153,8 @@ public class QuadTree {
      */
     public Object[] getValues() {
         final List<Object> arr = new ArrayList<Object>();
-        this.traverse(this.root_, new Func() {
-            public void call(QuadTree quadTree, Node node) {
+        this.traverse(this.root_, new Func_si() {
+            public void call(SummaryQuadTree quadTree, Node node) {
                 for (Point point : trajStorage.getPointsFromQNode(node)){
                     arr.add(point.getValue());
                 }
@@ -161,8 +166,8 @@ public class QuadTree {
 
     public Node[] searchIntersect(final double xmin, final double ymin, final double xmax, final double ymax) {
         final HashSet<Node> arr = new HashSet<Node>();
-        this.navigate(this.root_, new Func() {
-            public void call(QuadTree quadTree, Node node) {
+        this.navigate(this.root_, new Func_si() {
+            public void call(SummaryQuadTree quadTree, Node node) {
                 boolean intersects = intersects(xmin, ymin, xmax, ymax, node);
                 if (intersects) arr.add(node);
             }
@@ -173,8 +178,8 @@ public class QuadTree {
     // the following method is not used, so not updated like searchIntersect
     public Point[] searchWithin(final double xmin, final double ymin, final double xmax, final double ymax) {
         final List<Point> arr = new ArrayList<Point>();
-        this.navigate(this.root_, new Func() {
-            public void call(QuadTree quadTree, Node node) {
+        this.navigate(this.root_, new Func_si() {
+            public void call(SummaryQuadTree quadTree, Node node) {
                 // the following loop may be optimized if we can check node boundary only instead of all the points
                 for (Point point: trajStorage.getPointsFromQNode(node)){
                     if (point.getX() > xmin && point.getX() < xmax && point.getY() > ymin && point.getY() < ymax) {
@@ -186,7 +191,7 @@ public class QuadTree {
         return arr.toArray(new Point[arr.size()]);
     }
 
-    public void navigate(Node node, Func func, double xmin, double ymin, double xmax, double ymax) {
+    public void navigate(Node node, Func_si func, double xmin, double ymin, double xmax, double ymax) {
         switch (node.getNodeType()) {
             case LEAF:
                 func.call(this, node);
@@ -217,17 +222,17 @@ public class QuadTree {
      * Clones the quad-tree and returns the new instance.
      * @return {QuadTree} A clone of the tree.
      */
-    public QuadTree clone() {
+    public SummaryQuadTree clone() {
         double x1 = this.root_.getX();
         double y1 = this.root_.getY();
         double x2 = x1 + this.root_.getW();
         double y2 = y1 + this.root_.getH();
-        final QuadTree clone = new QuadTree(new TrajStorage(trajStorage.getTrajData()), x1, y1, x2, y2, this.minTimeInSec, this.timeWindowInSec);
+        final SummaryQuadTree clone = new SummaryQuadTree(new TrajStorage(trajStorage.getTrajData()), x1, y1, x2, y2, this.minTimeInSec, this.timeWindowInSec, nodeCapacity);
         // This is inefficient as the clone needs to recalculate the structure of the
         // tree, even though we know it already.  But this is easier and can be
         // optimized when/if needed.
-        this.traverse(this.root_, new Func() {
-            public void call(QuadTree quadTree, Node node) {
+        this.traverse(this.root_, new Func_si() {
+            public void call(SummaryQuadTree quadTree, Node node) {
                 for (Point point: trajStorage.getPointsFromQNode(node)){
                     clone.set(point.getX(), point.getY(), point.getTimeInSec(), point.getValue(), point.getTraj_id());
                 }
@@ -246,7 +251,7 @@ public class QuadTree {
      *     return value is irrelevant.
      * @private
      */
-    public void traverse(Node node, Func func) {
+    public void traverse(Node node, Func_si func) {
         switch (node.getNodeType()) {
             case LEAF:
                 func.call(this, node);
@@ -379,10 +384,10 @@ public class QuadTree {
         int childDepth = node.getDepth() + 1;
         height = Integer.max(height, childDepth);
 
-        node.setNw(new Node(x, y, hw, hh, node, childDepth));
-        node.setNe(new Node(x + hw, y, hw, hh, node, childDepth));
-        node.setSw(new Node(x, y + hh, hw, hh, node, childDepth));
-        node.setSe(new Node(x + hw, y + hh, hw, hh, node, childDepth));
+        node.setNw(new Node(x, y, hw, hh, node, childDepth, nodeCapacity));
+        node.setNe(new Node(x + hw, y, hw, hh, node, childDepth, nodeCapacity));
+        node.setSw(new Node(x, y + hh, hw, hh, node, childDepth, nodeCapacity));
+        node.setSe(new Node(x + hw, y + hh, hw, hh, node, childDepth, nodeCapacity));
 
         for (Point point: oldPoints){
             this.insert(node, point);
@@ -502,5 +507,87 @@ public class QuadTree {
         tagDiskBlockIdsToNodes(node.getSw());
         tagDiskBlockIdsToNodes(node.getSe());
     }
-        
+    
+    public void buildSummaryNetwork(){
+        HashMap<String,TransformedTrajectory> summaryTrajs = trajStorage.getSummaryTrajData();
+        for (HashMap.Entry<String,TransformedTrajectory> entry : summaryTrajs.entrySet()){
+            TransformedTrajectory summaryTraj = entry.getValue();
+            long prev = summaryTraj.getTransformedPointList().first().getqNodeIndex();
+            long qNodeZCode = -1;
+            int trajReachabilityCount = 0;
+            summaryGraph.put(prev, new HashMap<>());
+            for (TransformedTrajPoint summaryTrajPoint : summaryTraj.getTransformedPointList()){
+                qNodeZCode = summaryTrajPoint.getqNodeIndex();
+                if (prev != qNodeZCode){
+                    if (!summaryGraph.get(prev).containsKey(qNodeZCode)){
+                        summaryGraph.get(prev).put(qNodeZCode, 0);
+                    }
+                    trajReachabilityCount = summaryGraph.get(prev).get(qNodeZCode);
+                    summaryGraph.get(prev).put(qNodeZCode, trajReachabilityCount+1);
+                }
+                prev = qNodeZCode;
+                if (!summaryGraph.containsKey(prev)) summaryGraph.put(prev, new HashMap<>());
+            }
+            
+        }
+    }
+    
+    public void transformTrajSummary(Node node){
+        if (node.getNodeType() == NodeType.EMPTY){
+            // just added for safety, should not reach here
+            return;
+        }
+        if (node.getNodeType() == NodeType.LEAF){
+            ArrayList <Point> pointList = trajStorage.getPointsFromQNode(node);
+            for (Point point : pointList){
+                long qNodeIndex = node.getZCode();
+                TransformedTrajPoint transformedTrajPoint = new TransformedTrajPoint(qNodeIndex, point.getTimeInSec());
+                String trajId = (String)point.getTraj_id();
+                trajStorage.addValueToSummaryTrajData(trajId, transformedTrajPoint);
+            }
+            return;
+        }
+        transformTrajSummary(node.getNw());
+        transformTrajSummary(node.getNe());
+        transformTrajSummary(node.getSw());
+        transformTrajSummary(node.getSe());
+    }
+    
+    public void printSummaryGraph(){
+        for (Map.Entry<Long, HashMap<Long, Integer>> entry : summaryGraph.entrySet()){
+            long from = entry.getKey();
+            System.out.print(from + " : ");
+            for (Map.Entry<Long,Integer> entry1 : entry.getValue().entrySet()){
+                System.out.print("<" + entry1.getKey() + "," + entry1.getValue()+ ">, ");
+            }
+            System.out.println("");
+        }
+    }
+    
+    public void printSummaryGraphSummary(){
+        int noOfVertices = summaryGraph.size();
+        int noOfZeroDegreeVertices = 0;
+        int maxDegree = (int) -1e9;
+        int minDegree = (int) 1e9;
+        int avgDegree = 0;
+        for (Map.Entry<Long, HashMap<Long, Integer>> entry : summaryGraph.entrySet()){
+            long from = entry.getKey();
+            if (entry.getValue().isEmpty()){
+                noOfZeroDegreeVertices++;
+                continue;
+            }
+            int degree = entry.getValue().size();
+            maxDegree = Math.max(maxDegree, degree);
+            minDegree = Math.min(maxDegree, degree);
+            avgDegree += degree;
+        }
+        System.out.println("No. of vertices = " + noOfVertices);
+        System.out.println("No. of 0 deg vertices = " + noOfZeroDegreeVertices);
+        System.out.println("Max degree = " + maxDegree);
+        System.out.println("Min degree = " + minDegree);
+        System.out.println("Sum of degree = " + avgDegree);
+        System.out.println("Avg degree = " + avgDegree*1.0/noOfVertices);
+        System.out.println("Avg degree excluding 0 deg vertices= " + avgDegree*1.0/(noOfVertices-noOfZeroDegreeVertices));
+    }
+    
 }

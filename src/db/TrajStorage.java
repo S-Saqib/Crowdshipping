@@ -22,6 +22,7 @@ public class TrajStorage {
     private HashMap<String, Trajectory> trajData;   // normalized
     private HashMap<String, Trajectory> originalTrajData;
     private HashMap<String, TransformedTrajectory> transformedTrajData;
+    private HashMap<String, TransformedTrajectory> summaryTrajData;
     private final int chunkSize;
     private int cursor;
     private HashMap<Node, ArrayList<Point>> tempQNodeToPointListMap;
@@ -35,6 +36,7 @@ public class TrajStorage {
         cursor = 0;
         this.tempQNodeToPointListMap = new HashMap<Node, ArrayList<Point>>();
         this.transformedTrajData = new HashMap<String, TransformedTrajectory>();
+        this.summaryTrajData = new HashMap<String, TransformedTrajectory>();
         this.diskBlockIdToTrajIdListMap = new HashMap<Integer, ArrayList<String>>();
     }
     
@@ -44,6 +46,7 @@ public class TrajStorage {
         cursor = 0;
         this.tempQNodeToPointListMap = new HashMap<Node, ArrayList<Point>>();
         this.transformedTrajData = new HashMap<String, TransformedTrajectory>();
+        this.summaryTrajData = new HashMap<String, TransformedTrajectory>();
         this.diskBlockIdToTrajIdListMap = new HashMap<Integer, ArrayList<String>>();
     }
 
@@ -53,6 +56,7 @@ public class TrajStorage {
         cursor = 0;
         this.tempQNodeToPointListMap = null;
         this.transformedTrajData = null;
+        this.summaryTrajData = null;
         this.diskBlockIdToTrajIdListMap = null;
     }
 
@@ -123,6 +127,7 @@ public class TrajStorage {
     
     public void clearQNodeToPointListMap(){
         tempQNodeToPointListMap.clear();
+        tempQNodeToPointListMap = new HashMap<Node, ArrayList<Point>>();
     }
     
     // should we pass transformed trajectory data chunk by chunk?
@@ -150,9 +155,21 @@ public class TrajStorage {
         }
     }
     
+    public void addKeyToSummaryTrajData(String id){
+        if (!summaryTrajData.containsKey(id)){
+            // using the same method ignoring the second parameter
+            summaryTrajData.put(id, new TransformedTrajectory(id, -1));
+        }
+    }
+    
     public void addValueToTransformedTrajData(String id, TransformedTrajPoint transformedTrajPoint){
         addKeyToTransformedTrajData(id);
         transformedTrajData.get(id).addTransformedTrajPoint(transformedTrajPoint);
+    }
+    
+    public void addValueToSummaryTrajData(String id, TransformedTrajPoint transformedTrajPoint){
+        addKeyToSummaryTrajData(id);
+        summaryTrajData.get(id).addTransformedTrajPoint(transformedTrajPoint);
     }
 
     public HashMap<String, Integer> getTrajIdToDiskBlockIdMap() {
@@ -183,7 +200,11 @@ public class TrajStorage {
         if (!diskBlockIdToTrajIdListMap.containsKey(blockId)) return null;
         return diskBlockIdToTrajIdListMap.get(blockId);
     }
-    
+
+    public HashMap<String, TransformedTrajectory> getSummaryTrajData() {
+        return summaryTrajData;
+    }
+        
     public void printTrajectories(){
         for (Map.Entry<String, Trajectory> entry : trajData.entrySet()) {
             String trajId = entry.getKey();
@@ -191,5 +212,9 @@ public class TrajStorage {
             System.out.println(traj);
             System.out.println(transformedTrajData.get(trajId));
         }
+    }
+    
+    public void resetSummaryTrajData(){
+        summaryTrajData.clear();
     }
 }

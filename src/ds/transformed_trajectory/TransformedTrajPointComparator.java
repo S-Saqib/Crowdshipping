@@ -20,6 +20,8 @@ public class TransformedTrajPointComparator implements Comparator<Object>{
         
         if (t1.getTimeIndex()< t2.getTimeIndex()) return -1;
         if (t1.getTimeIndex() > t2.getTimeIndex()) return 1;
+        if (t1.getTimeInSec()< t2.getTimeInSec()) return -1;
+        if (t1.getTimeInSec() > t2.getTimeInSec()) return 1;
         if (t1.getqNodeIndex() < t2.getqNodeIndex()) return -1;
         if (t1.getqNodeIndex() > t2.getqNodeIndex()) return 1;
         return 0;
