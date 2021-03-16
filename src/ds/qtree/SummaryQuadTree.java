@@ -30,6 +30,9 @@ public class SummaryQuadTree {
     private int nodeCapacity;
     private HashMap<Long, HashMap<Long,Integer>> summaryGraph;
     // first key = from where, second key = to where, second value = using how many trajs
+    private HashMap<Long, HashMap<Long,Integer>> reverseSummaryGraph;
+    // first key = to where, second key = from where, second value = using how many trajs
+    private HashMap<Long, Node> qNodeIndexToNodeMap;
     
     /**
      * Constructs a new quad tree.
@@ -50,6 +53,7 @@ public class SummaryQuadTree {
         this.timeWindowInSec = timeWindowInSec;
         this.nodeCapacity = nodeCapacity;
         summaryGraph = new HashMap<>();
+        qNodeIndexToNodeMap = new HashMap<>();
     }
 
     /**
@@ -449,6 +453,7 @@ public class SummaryQuadTree {
         }
         if (node.getNodeType() == NodeType.LEAF){
             node.setZCode(zCode);
+            qNodeIndexToNodeMap.put(zCode, node);
             return zCode;
         }
         node.setZCode(-1);
@@ -507,31 +512,7 @@ public class SummaryQuadTree {
         tagDiskBlockIdsToNodes(node.getSw());
         tagDiskBlockIdsToNodes(node.getSe());
     }
-    
-    public void buildSummaryNetwork(){
-        HashMap<String,TransformedTrajectory> summaryTrajs = trajStorage.getSummaryTrajData();
-        for (HashMap.Entry<String,TransformedTrajectory> entry : summaryTrajs.entrySet()){
-            TransformedTrajectory summaryTraj = entry.getValue();
-            long prev = summaryTraj.getTransformedPointList().first().getqNodeIndex();
-            long qNodeZCode = -1;
-            int trajReachabilityCount = 0;
-            summaryGraph.put(prev, new HashMap<>());
-            for (TransformedTrajPoint summaryTrajPoint : summaryTraj.getTransformedPointList()){
-                qNodeZCode = summaryTrajPoint.getqNodeIndex();
-                if (prev != qNodeZCode){
-                    if (!summaryGraph.get(prev).containsKey(qNodeZCode)){
-                        summaryGraph.get(prev).put(qNodeZCode, 0);
-                    }
-                    trajReachabilityCount = summaryGraph.get(prev).get(qNodeZCode);
-                    summaryGraph.get(prev).put(qNodeZCode, trajReachabilityCount+1);
-                }
-                prev = qNodeZCode;
-                if (!summaryGraph.containsKey(prev)) summaryGraph.put(prev, new HashMap<>());
-            }
-            
-        }
-    }
-    
+        
     public void transformTrajSummary(Node node){
         if (node.getNodeType() == NodeType.EMPTY){
             // just added for safety, should not reach here
@@ -553,8 +534,58 @@ public class SummaryQuadTree {
         transformTrajSummary(node.getSe());
     }
     
+    public void buildSummaryNetwork(){
+        HashMap<String,TransformedTrajectory> summaryTrajs = trajStorage.getSummaryTrajData();
+        for (HashMap.Entry<String,TransformedTrajectory> entry : summaryTrajs.entrySet()){
+            TransformedTrajectory summaryTraj = entry.getValue();
+            long prev = summaryTraj.getTransformedPointList().first().getqNodeIndex();
+            long qNodeZCode = -1;
+            int trajReachabilityCount = 0;
+            summaryGraph.put(prev, new HashMap<>());
+            for (TransformedTrajPoint summaryTrajPoint : summaryTraj.getTransformedPointList()){
+                qNodeZCode = summaryTrajPoint.getqNodeIndex();
+                if (prev != qNodeZCode){
+                    if (!summaryGraph.get(prev).containsKey(qNodeZCode)){
+                        summaryGraph.get(prev).put(qNodeZCode, 0);
+                    }
+                    trajReachabilityCount = summaryGraph.get(prev).get(qNodeZCode);
+                    summaryGraph.get(prev).put(qNodeZCode, trajReachabilityCount+1);
+                }
+                prev = qNodeZCode;
+                if (!summaryGraph.containsKey(prev)) summaryGraph.put(prev, new HashMap<>());
+            }
+        }
+        buildReverseSummaryGraph();
+    }
+    
+    private void buildReverseSummaryGraph(){
+        reverseSummaryGraph = new HashMap<>();
+        for (HashMap.Entry<Long, HashMap<Long,Integer>> entry : summaryGraph.entrySet()){
+            long from = entry.getKey();
+            for (HashMap.Entry<Long,Integer> adjListEntry : entry.getValue().entrySet()){
+                long to = adjListEntry.getKey();
+                int trajReachabilityCount = adjListEntry.getValue();
+                if (!reverseSummaryGraph.containsKey(to)){
+                    reverseSummaryGraph.put(to, new HashMap<>());
+                }
+                reverseSummaryGraph.get(to).put(from, trajReachabilityCount);
+            }
+        }
+    }
+    
     public void printSummaryGraph(){
         for (Map.Entry<Long, HashMap<Long, Integer>> entry : summaryGraph.entrySet()){
+            long from = entry.getKey();
+            System.out.print(from + " : ");
+            for (Map.Entry<Long,Integer> entry1 : entry.getValue().entrySet()){
+                System.out.print("<" + entry1.getKey() + "," + entry1.getValue()+ ">, ");
+            }
+            System.out.println("");
+        }
+    }
+    
+    public void printReverseSummaryGraph(){
+        for (Map.Entry<Long, HashMap<Long, Integer>> entry : reverseSummaryGraph.entrySet()){
             long from = entry.getKey();
             System.out.print(from + " : ");
             for (Map.Entry<Long,Integer> entry1 : entry.getValue().entrySet()){
@@ -590,4 +621,30 @@ public class SummaryQuadTree {
         System.out.println("Avg degree excluding 0 deg vertices= " + avgDegree*1.0/(noOfVertices-noOfZeroDegreeVertices));
     }
     
+    public void printReverseSummaryGraphSummary(){
+        int noOfVertices = reverseSummaryGraph.size();
+        int noOfZeroDegreeVertices = 0;
+        int maxDegree = (int) -1e9;
+        int minDegree = (int) 1e9;
+        int avgDegree = 0;
+        for (Map.Entry<Long, HashMap<Long, Integer>> entry : reverseSummaryGraph.entrySet()){
+            long from = entry.getKey();
+            if (entry.getValue().isEmpty()){
+                noOfZeroDegreeVertices++;
+                continue;
+            }
+            int degree = entry.getValue().size();
+            maxDegree = Math.max(maxDegree, degree);
+            minDegree = Math.min(maxDegree, degree);
+            avgDegree += degree;
+        }
+        System.out.println("No. of vertices = " + noOfVertices);
+        System.out.println("No. of 0 deg vertices = " + noOfZeroDegreeVertices);
+        System.out.println("Max degree = " + maxDegree);
+        System.out.println("Min degree = " + minDegree);
+        System.out.println("Sum of degree = " + avgDegree);
+        System.out.println("Avg degree = " + avgDegree*1.0/noOfVertices);
+        System.out.println("Avg degree excluding 0 deg vertices= " + avgDegree*1.0/(noOfVertices-noOfZeroDegreeVertices));
+    }
+
 }

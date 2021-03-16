@@ -65,10 +65,11 @@ public class CrowdShipping {
                                                 trajProcessor.getLonCoeff(), trajProcessor.getLonConst(), 
                                                 trajProcessor.getMaxLat(), trajProcessor.getMaxLon(), trajProcessor.getMinLat(), trajProcessor.getMinLon(),
                                                 trajProcessor.getMinTimeInSec(), timeWindowInSec);
-            System.out.println("TQ-tree construction time = " + (System.nanoTime()-from)/1.0e9);
+            System.out.println("TQ-tree construction time = " + (System.nanoTime()-from)/1.0e9 + " sec");
             //Statistics stats = new Statistics(quadTrajTree);
             //stats.printStats();
             //System.out.println(userTrajectories.size());
+            /*
             from = System.nanoTime();
             quadTrajTree.buildSummaryIndex(100);
             System.out.println("Summary index (100 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
@@ -86,13 +87,16 @@ public class CrowdShipping {
             System.out.println("Summary index (500 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
             //quadTrajTree.printSummaryIndex();
             quadTrajTree.printSummaryIndexSummary();
-            
+            */
             from = System.nanoTime();
             quadTrajTree.buildSummaryIndex(1000);
-            System.out.println("Summary index (1000 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
+            System.out.println("Summary index (1000 pt/leaf) construction time = " + (System.nanoTime()-from)/1.0e9 + " sec");
             //quadTrajTree.printSummaryIndex();
+            //quadTrajTree.printRevSummaryIndex();
             quadTrajTree.printSummaryIndexSummary();
-            
+            System.out.println("Reverse...");
+            quadTrajTree.printRevSummaryIndexSummary();
+            /*
             from = System.nanoTime();
             quadTrajTree.buildSummaryIndex(2000);
             System.out.println("Summary index (2000 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
@@ -104,7 +108,7 @@ public class CrowdShipping {
             System.out.println("Summary index (5000 pt /leaf) construction time = " + (System.nanoTime()-from)/1.0e9);
             //quadTrajTree.printSummaryIndex();
             quadTrajTree.printSummaryIndexSummary();
-            
+            */
             //quadTrajTree = null;
             //quadTrajTree.getAllInterNodeTrajsId(quadTrajTree.getQuadTree().getRootNode());
         /*

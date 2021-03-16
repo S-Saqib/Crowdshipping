@@ -152,6 +152,14 @@ public class TQIndex {
         sqTree.printSummaryGraphSummary();
     }
     
+    public void printRevSummaryIndex(){
+        sqTree.printReverseSummaryGraph();
+    }
+    
+    public void printRevSummaryIndexSummary(){
+        sqTree.printReverseSummaryGraphSummary();
+    }
+    
     private void addTrajectories(ArrayList<Trajectory> trajectories) {
         for (Trajectory trajectory : trajectories) {
             Node node = addTrajectory(quadTree.getRootNode(), trajectory);
