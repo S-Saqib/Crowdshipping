@@ -39,6 +39,7 @@ public class TrajProcessor {
     private HashMap<String, Trajectory> trajIdToNormalizedTrajMap;
     private HashMap<Integer, ArrayList<String>> userIdToTrajIdMap;
     private HashMap<Integer, Pair<Double,Double>> stoppageMap;
+    private HashMap<Integer, Pair<Double,Double>> normalizedStoppageMap;
     
     public TrajProcessor(){
         excludeUserIds = new HashSet<>();
@@ -46,6 +47,7 @@ public class TrajProcessor {
         trajIdToNormalizedTrajMap = new HashMap<>();
         userIdToTrajIdMap = new HashMap<>();
         stoppageMap = new HashMap<>();
+        normalizedStoppageMap = new HashMap<>();
         // the following variables are used in spatial normalization
         minLon = minLat = 1000;
         maxLon = maxLat = -1000;
@@ -241,6 +243,14 @@ public class TrajProcessor {
             */
         }
         br.close();
+        
+        // 1% increase in spatio-temporal boundaries
+        maxLat += (maxLat-minLat)/100;
+        minLat -= (maxLat-minLat)/100;
+        maxLon += (maxLon-minLon)/100;
+        minLon -= (maxLon-minLon)/100;
+        maxTimeInSec += (maxTimeInSec-minTimeInSec)/100;
+        minTimeInSec -= (maxTimeInSec-minTimeInSec)/100;
     }
     
     public void normalizeTrajectories(){
@@ -253,6 +263,11 @@ public class TrajProcessor {
         latConst = minLat;
         lonCoeff = (maxLon/100.0-minLon/100.0);
         lonConst = minLon;
+    }
+    
+    public void normalizeStops(){
+        StopNormalizer stopNormalizer = new StopNormalizer();
+        normalizedStoppageMap = stopNormalizer.normalize(stoppageMap, minLon, minLat, maxLon, maxLat);
     }
     
     public void excludeWeekendUserIds(){
@@ -372,4 +387,13 @@ public class TrajProcessor {
     public long getMaxTimeInSec() {
         return maxTimeInSec;
     }
+
+    public HashMap<Integer, Pair<Double, Double>> getStoppageMap() {
+        return stoppageMap;
+    }
+
+    public HashMap<Integer, Pair<Double, Double>> getNormalizedStoppageMap() {
+        return normalizedStoppageMap;
+    }
+    
 }

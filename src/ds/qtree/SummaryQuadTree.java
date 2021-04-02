@@ -647,4 +647,16 @@ public class SummaryQuadTree {
         System.out.println("Avg degree excluding 0 deg vertices= " + avgDegree*1.0/(noOfVertices-noOfZeroDegreeVertices));
     }
 
+    public HashMap<Long, HashMap<Long, Integer>> getSummaryGraph() {
+        return summaryGraph;
+    }
+
+    public HashMap<Long, HashMap<Long, Integer>> getReverseSummaryGraph() {
+        return reverseSummaryGraph;
+    }
+
+    public HashMap<Long, Node> getqNodeIndexToNodeMap() {
+        return qNodeIndexToNodeMap;
+    }
+    
 }

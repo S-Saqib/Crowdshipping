@@ -315,6 +315,10 @@ public class TQIndex {
     public double getMinLon() {
         return minLon;
     }
+
+    public SummaryQuadTree getSqTree() {
+        return sqTree;
+    }
     
     public void draw() {
         IndexCanvas quadTrajTreeCanvas = new IndexCanvas(this);

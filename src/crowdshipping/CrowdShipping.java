@@ -27,6 +27,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import query.PacketDeliveryQuery;
+import query.PacketRequest;
+import query.service.DistanceConverter;
 
 import query.service.TestServiceQuery;
 
@@ -47,13 +50,13 @@ public class CrowdShipping {
         trajProcessor.loadStoppageData(stopFile2Path);
         trajProcessor.loadTrajectories(trajFilePath);
         //trajProcessor.printTrajs();
-        //trajProcessor.printSummary();
+        trajProcessor.printSummary();
         trajProcessor.excludeWeekendUserIds();
         trajProcessor.normalizeTrajectories();
-        //trajProcessor.printSummary();
+        trajProcessor.printSummary();
         //trajProcessor.printTrajs(5);
         //trajProcessor.printNormalizedTrajs(5);
-        //trajProcessor.printInfo();
+        trajProcessor.printInfo();
         
         // create an object of TrajStorage to imitate database functionalities
         TrajStorage trajStorage = new TrajStorage(trajProcessor.getTrajIdToNormalizedTrajMap(),trajProcessor.getTrajIdToTrajMap());
@@ -66,8 +69,8 @@ public class CrowdShipping {
                                                 trajProcessor.getMaxLat(), trajProcessor.getMaxLon(), trajProcessor.getMinLat(), trajProcessor.getMinLon(),
                                                 trajProcessor.getMinTimeInSec(), timeWindowInSec);
             System.out.println("TQ-tree construction time = " + (System.nanoTime()-from)/1.0e9 + " sec");
-            //Statistics stats = new Statistics(quadTrajTree);
-            //stats.printStats();
+            Statistics stats = new Statistics(quadTrajTree);
+            stats.printStats();
             //System.out.println(userTrajectories.size());
             /*
             from = System.nanoTime();
@@ -119,19 +122,42 @@ public class CrowdShipping {
             Thread.sleep(100);
         } catch (InterruptedException ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-        }  
-        //facilityGraph = quadTrajTree.makeUnionSet(facilityGraph);
-        //quadTrajTree.draw();
-
-        /*
-        int tot = 0;
-        int id = 0;
-        for (Entry<Node, Integer> entry : quadTrajTree.nodeToAllTrajsCount.entrySet()) {
-            //System.out.println(entry.getKey() + " " + entry.getValue());
-            tot += entry.getValue();
         }
-        System.out.println(tot); */
-        //System.exit(0);
+        */
+        trajProcessor.normalizeStops();
+        PacketDeliveryQuery packetDeliveryQuery = new PacketDeliveryQuery(trajProcessor.getStoppageMap(), trajProcessor.getNormalizedStoppageMap());
+        
+        for (int i=0; i<10; i++){
+            packetDeliveryQuery.generatePktDeliveryReq();
+            PacketRequest pktReq = packetDeliveryQuery.getPacketRequest();
+            System.out.println("Generated Packet Request:\n" + pktReq);
+
+            //facilityGraph = quadTrajTree.makeUnionSet(facilityGraph);
+            //quadTrajTree.draw();
+
+            /*
+            int tot = 0;
+            int id = 0;
+            for (Entry<Node, Integer> entry : quadTrajTree.nodeToAllTrajsCount.entrySet()) {
+                //System.out.println(entry.getKey() + " " + entry.getValue());
+                tot += entry.getValue();
+            }
+            System.out.println(tot); */
+
+            double spatialProximity = 50; // in feet, should be around 13 for example
+            String proximityUnit = "m"; // it can be "m", "km", "mile" and "ft"
+            DistanceConverter distanceConverter = new DistanceConverter(trajProcessor.getMaxLon(), trajProcessor.getMaxLat(), trajProcessor.getMinLon(), trajProcessor.getMinLat());
+            double latProximity = distanceConverter.getLatProximity(spatialProximity, proximityUnit);
+            double lonProximity = distanceConverter.getLonProximity(spatialProximity, proximityUnit);
+
+            System.out.println(latProximity + " and " + lonProximity);
+
+            long temporalProximity = 15; // in minutes, may be anything around 5 to 240 for example
+            temporalProximity *= 60;    // in seconds
+
+            TestServiceQuery.run(trajStorage, quadTrajTree, pktReq, latProximity, lonProximity, temporalProximity);
+            //System.exit(0);
+        }
         
         //TestServiceQuery.run(quadTrajTree, facilityGraph);
         //TestBestKQuery.run(quadTrajTree, facilityGraph);
