@@ -137,6 +137,7 @@ public class TrajProcessor {
                 trajectory.setUserId(currentTrajUserId);
                 trajectory.setTrajId(Integer.toString(trajCount));
                 userIdToTrajIdMap.get(currentTrajUserId).add(trajectory.getTrajId());
+                //if (Integer.parseInt(trajectory.getTrajId()) > 958358) System.out.println(trajectory.getTrajId());
                 trajIdToTrajMap.put(trajectory.getTrajId(), trajectory);
                 trajCount++;
                 trajectory = new Trajectory();
@@ -251,6 +252,7 @@ public class TrajProcessor {
         minLon -= (maxLon-minLon)/100;
         maxTimeInSec += (maxTimeInSec-minTimeInSec)/100;
         minTimeInSec -= (maxTimeInSec-minTimeInSec)/100;
+        //System.out.println("Traj count = " + trajCount);
     }
     
     public void normalizeTrajectories(){
@@ -275,6 +277,7 @@ public class TrajProcessor {
         int excludedUserCount = 0;
         for (Integer excludeUserId : excludeUserIds){
             for (String trajId : userIdToTrajIdMap.get(excludeUserId)){
+                //if (Integer.parseInt(trajId) > 958358) System.out.println(trajId);
                 trajIdToTrajMap.remove(trajId);
                 excludedTrajCount++;
             }
@@ -328,6 +331,7 @@ public class TrajProcessor {
     
     public void printSummary(){
         System.out.println("Users = " + userIdToTrajIdMap.size());
+        System.out.println("Trajs = " + trajIdToTrajMap.size());
         int[] trajCountWiseUserCount = new int[100];
         Arrays.fill(trajCountWiseUserCount, 0);
         for (Map.Entry<Integer, ArrayList<String>> entry : userIdToTrajIdMap.entrySet()){

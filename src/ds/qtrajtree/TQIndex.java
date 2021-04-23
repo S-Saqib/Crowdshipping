@@ -85,7 +85,10 @@ public class TQIndex {
                 TreeSet <TrajPoint> trajPointList = trajectory.getPointList();
                 int pointCount = 0;
                 // long trajId = trajectory.getUserId();
-                String anonymizedTrajId = trajectory.getAnonymizedId();
+                // the following line perhaps contains an error, the id should be trajectory id, not user id
+                // String anonymizedTrajId = trajectory.getAnonymizedId();
+                // changed with trajectory id
+                String anonymizedTrajId = trajectory.getTrajId();
                 for (TrajPoint trajPoint: trajPointList) {
                     Coordinate trajPointLocation = trajPoint.getPointLocation();
                     long trajPointTimeInSec = trajPoint.getTimeInSec();

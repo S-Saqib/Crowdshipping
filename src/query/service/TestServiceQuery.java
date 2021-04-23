@@ -24,9 +24,12 @@ public class TestServiceQuery {
             
             // assuming only the best one is returned
             ArrayList <Trajectory> bestDeliverers = processQuery.deliverPacket(pktRequest);
+            System.out.println("best deliverers size = " + bestDeliverers.size());
+            /*
             for (Trajectory deliverer : bestDeliverers){
                 System.out.println(deliverer.getUserId() + " " + deliverer.getTrajId());
             }
+            */
             // HashMap<String, TreeSet<TrajPoint>> infectedContacts = new HashMap<String, TreeSet<TrajPoint>>();
             // infectedContacts = processQuery.evaluateService(quadTrajTree.getQuadTree().getRootNode(), facilityGraph, infectedContacts);
             //infectedContacts = processQuery.calculateCover(quadTrajTree.getQuadTree(), facilityGraph, infectedContacts);

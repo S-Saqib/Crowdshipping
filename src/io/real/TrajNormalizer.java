@@ -70,6 +70,7 @@ public class TrajNormalizer {
             // update the trajPoint list in the trajectory object
             normalizedTrajectory.setTrajEdges(normTrajEdges);
             //System.out.println(normalizedTrajectory);
+            //if (Integer.parseInt(normalizedTrajectory.getTrajId()) > 958358) System.out.println(normalizedTrajectory.getTrajId());
             normalizedTrajectories.put(normalizedTrajectory.getTrajId(), normalizedTrajectory);
         }
         return normalizedTrajectories;

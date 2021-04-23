@@ -50,13 +50,13 @@ public class CrowdShipping {
         trajProcessor.loadStoppageData(stopFile2Path);
         trajProcessor.loadTrajectories(trajFilePath);
         //trajProcessor.printTrajs();
-        trajProcessor.printSummary();
+        //trajProcessor.printSummary();
         trajProcessor.excludeWeekendUserIds();
         trajProcessor.normalizeTrajectories();
         trajProcessor.printSummary();
         //trajProcessor.printTrajs(5);
         //trajProcessor.printNormalizedTrajs(5);
-        trajProcessor.printInfo();
+        //trajProcessor.printInfo();
         
         // create an object of TrajStorage to imitate database functionalities
         TrajStorage trajStorage = new TrajStorage(trajProcessor.getTrajIdToNormalizedTrajMap(),trajProcessor.getTrajIdToTrajMap());
@@ -130,7 +130,7 @@ public class CrowdShipping {
         for (int i=0; i<10; i++){
             packetDeliveryQuery.generatePktDeliveryReq();
             PacketRequest pktReq = packetDeliveryQuery.getPacketRequest();
-            System.out.println("Generated Packet Request:\n" + pktReq);
+            System.out.println("\nGenerated Packet Request:\n" + pktReq);
 
             //facilityGraph = quadTrajTree.makeUnionSet(facilityGraph);
             //quadTrajTree.draw();
@@ -150,7 +150,7 @@ public class CrowdShipping {
             double latProximity = distanceConverter.getLatProximity(spatialProximity, proximityUnit);
             double lonProximity = distanceConverter.getLonProximity(spatialProximity, proximityUnit);
 
-            System.out.println(latProximity + " and " + lonProximity);
+            //System.out.println(latProximity + " and " + lonProximity);
 
             long temporalProximity = 15; // in minutes, may be anything around 5 to 240 for example
             temporalProximity *= 60;    // in seconds

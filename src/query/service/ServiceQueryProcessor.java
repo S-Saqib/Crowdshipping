@@ -76,8 +76,9 @@ public class ServiceQueryProcessor {
     }
     
     // retrieve summary nodes considering overlap
+    
     public ArrayList<Node> retrieveSummaryNodes(PacketRequest pktRequest){
-        int overlapThreshold = 10;
+        int overlapThreshold = 5;
         SummaryQuadTree sqTree = quadTrajTree.getSqTree();
         
         HashMap<Node, Integer> summaryNodes = new HashMap<>();
@@ -99,6 +100,9 @@ public class ServiceQueryProcessor {
         
         Node[] incomingNodes = quadTrajTree.getSqTree().searchIntersect(xMin, yMin, xMax, yMax);
         
+        System.out.println("Outgoing nodes size = " + outgoingNodes.length);
+        System.out.println("Incoming nodes size = " + incomingNodes.length);
+        
         for (Node node : outgoingNodes){
             HashMap <Long, Integer> outNeighbors = sqTree.getSummaryGraph().get(node.getZCode());
             if (outNeighbors == null) continue;
@@ -107,9 +111,10 @@ public class ServiceQueryProcessor {
             }
             // the following check is not actually necessary since the nodes are supposed to be unique
             if (summaryNodes.containsKey(node)){
+                System.out.println("Outgoing node repeated!! - " + node.getZCode());
                 // overlappingNodes.add(node);
             }
-            else summaryNodes.put(node, 1);
+            else summaryNodes.put(node, 1); // 1 denotes only outgoing
         }
         
         for (Node node : incomingNodes){
@@ -118,11 +123,21 @@ public class ServiceQueryProcessor {
             for (HashMap.Entry<Long,Integer> entry : inNeighbors.entrySet()){
                 inNodes.add(new Pair(entry.getValue(), entry.getKey()));
             }
+            // the node is in summary nodes from outgoing nodes
             if (summaryNodes.containsKey(node) && summaryNodes.get(node)==1){
                 overlappingNodes.add(node);
-                summaryNodes.put(node, 3);
+                summaryNodes.put(node, 3);  // 3 denotes both incoming and outgoing
             }
-            else summaryNodes.put(node, 2);
+            // the following check is not actually necessary since the nodes are supposed to be unique
+            else if (summaryNodes.containsKey(node)){
+                System.out.println("Incoming node repeated!! - " + node.getZCode());
+            }
+            else summaryNodes.put(node, 2); // 2 denotes only incoming
+        }
+        // printing overlapping nodes after the initial outgoing and incoming nodes check
+        System.out.println("Overlapping nodes initial size = " + overlappingNodes.size());
+        for (Node node : overlappingNodes){
+            System.out.println(node.getZCode());
         }
         
         boolean explore = true;
@@ -130,6 +145,7 @@ public class ServiceQueryProcessor {
             if (outNodes.peek() == null && inNodes.peek() == null) break;
             explore = true;
             Pair bestPair = outNodes.poll();
+            // System.out.println("Extracted : " + bestPair.getKey() + " ; " + bestPair.getValue());
             if (bestPair!=null){
                 Node node = sqTree.getqNodeIndexToNodeMap().get(bestPair.getValue());
                 if (summaryNodes.containsKey(node)){
@@ -175,18 +191,338 @@ public class ServiceQueryProcessor {
             }
         }
         
-        System.out.println("Retrieved Summary Nodes = ");
+        System.out.println("Retrieved Summary Nodes Size = " + summaryNodes.size());
+        /*
         for (Node node : summaryNodes.keySet()){
             System.out.println(node.getZCode());
         }
+        */
+        // return new ArrayList<Node>(summaryNodes.keySet());
         
+        
+        System.out.println("Retrieved Overlapping Summary Nodes Size = " + overlappingNodes.size());
+        /*
+        for (Node node : overlappingNodes){
+            System.out.println(node.getZCode());
+        }
+        */
+        //return new ArrayList<Node>(overlappingNodes);
         return new ArrayList<Node>(summaryNodes.keySet());
+    }
+    
+    public ArrayList<Node> retrieveSummaryNodesOriginal(PacketRequest pktRequest){
+        int overlapThreshold = 10;
+        SummaryQuadTree sqTree = quadTrajTree.getSqTree();
+        
+        PriorityQueue<Pair> potentialOutNodes = new PriorityQueue<>();
+        PriorityQueue<Pair> potentialInNodes = new PriorityQueue<>();
+        HashSet<Node> exploredOutNodes = new HashSet<>();
+        HashSet<Node> exploredInNodes = new HashSet<>();
+        
+        //HashMap<Node, Integer> summaryNodes = new HashMap<>();
+        HashSet<Node> summaryNodes = new HashSet<>();
+        
+        double xMin = pktRequest.getNormSrcLat()-latDisThreshold;
+        double xMax = pktRequest.getNormSrcLat()+latDisThreshold;
+        double yMin = pktRequest.getNormSrcLon()-lonDisThreshold;
+        double yMax = pktRequest.getNormSrcLon()+lonDisThreshold;
+        
+        // nearby blocks Ns
+        Node[] outgoingNodes = quadTrajTree.getSqTree().searchIntersect(xMin, yMin, xMax, yMax);
+        
+        xMin = pktRequest.getNormDestLat()-latDisThreshold;
+        xMax = pktRequest.getNormDestLat()+latDisThreshold;
+        yMin = pktRequest.getNormDestLon()-lonDisThreshold;
+        yMax = pktRequest.getNormDestLon()+lonDisThreshold;
+        
+        // nearby blocks Nd
+        Node[] incomingNodes = quadTrajTree.getSqTree().searchIntersect(xMin, yMin, xMax, yMax);
+        
+        // O gets Ns (say key = sum of outdegree
+        // we know every node is distinct in this array, no need to check color
+        for (Node node : outgoingNodes){
+            // add outgoing nodes to potential outnodes with appropriate key
+            potentialOutNodes.add(new Pair(calculateKey(sqTree.getSummaryGraph().get(node.getZCode())), node.getZCode()));
+        }
+        
+        for (Node node : incomingNodes){
+            // add incoming nodes to potential innodes with appropriate key
+            potentialInNodes.add(new Pair(calculateKey(sqTree.getReverseSummaryGraph().get(node.getZCode())), node.getZCode()));
+        }
+        
+        int overlapCount = 0;
+        
+        while(overlapCount < overlapThreshold){
+            if ((potentialOutNodes == null || potentialOutNodes.isEmpty()) && (potentialInNodes == null || potentialInNodes.isEmpty())){
+                // neither of the priority queues have any more elements
+                break;
+            }
+            if (potentialOutNodes != null && !potentialOutNodes.isEmpty()){
+                // next potential out block
+                Pair o = potentialOutNodes.poll();
+                Node oNode = sqTree.getqNodeIndexToNodeMap().get(o.getValue());
+                // need to do a color check
+                if (!exploredOutNodes.contains(oNode)){
+                    // add o to the list of nodes to be retrieved
+                    summaryNodes.add(oNode);
+                    // add o to explored outnodes
+                    exploredOutNodes.add(oNode);
+                    // add neighbors of o to potential outnodes with appropriate keys
+                    HashMap <Long, Integer> neighbors = sqTree.getSummaryGraph().get(o.getValue());
+                    if (neighbors != null){
+                        for (HashMap.Entry<Long, Integer> entry : neighbors.entrySet()){
+                            long neighborNodeZCode = entry.getKey();
+                            potentialOutNodes.add(new Pair(calculateKey(sqTree.getSummaryGraph().get(neighborNodeZCode)), neighborNodeZCode));
+                        }
+                    }
+                    // check if this node overlaps with the explored incoming nodes
+                    if (exploredInNodes.contains(o)){
+                        overlapCount++;
+                    }
+                }
+            }
+            if (potentialInNodes != null && !potentialInNodes.isEmpty() && overlapCount < overlapThreshold){
+                // next potential in block
+                Pair i = potentialInNodes.poll();
+                Node iNode = sqTree.getqNodeIndexToNodeMap().get(i.getValue());
+                // need to do a color check
+                if (!exploredInNodes.contains(iNode)){
+                    // add i to the list of nodes to be retrieved
+                    summaryNodes.add(iNode);
+                    // add i to explored innodes
+                    exploredInNodes.add(iNode);
+                    // add neighbors of i to potential innodes with appropriate keys
+                    HashMap <Long, Integer> neighbors = sqTree.getReverseSummaryGraph().get(i.getValue());
+                    if (neighbors != null){
+                        for (HashMap.Entry<Long, Integer> entry : neighbors.entrySet()){
+                            long neighborNodeZCode = entry.getKey();
+                            potentialInNodes.add(new Pair(calculateKey(sqTree.getReverseSummaryGraph().get(neighborNodeZCode)), neighborNodeZCode));
+                        }
+                    }
+                    // check if this node overlaps with the explored outgoing nodes
+                    if (exploredOutNodes.contains(i)){
+                        overlapCount++;
+                    }
+                }
+            }
+        }
+        System.out.println("Retrieved Summary Nodes (Original) Size = " + summaryNodes.size());
+        System.out.println("Retrieved Overlap Count (Original) = " + overlapCount);
+        System.out.println("Unexplored outnodes = " + potentialOutNodes.size() + " , Unexplored innodes = " + potentialInNodes.size());
+        return new ArrayList<Node>(summaryNodes);
+    }
+    
+    public int calculateKey(HashMap<Long, Integer> neighbors){
+        return calculateKeyFromTrajCount(neighbors);
+        // return calculateKeyFromNeighborCount(neighbors);
+    }
+    
+    public int calculateKeyFromNeighborCount(HashMap<Long, Integer> neighbors){
+        if (neighbors == null) return 0;
+        return neighbors.size();
+    }
+    
+    public int calculateKeyFromTrajCount(HashMap<Long, Integer> neighbors){
+        int key = 0;
+        if (neighbors != null){
+            for (HashMap.Entry<Long,Integer> entry : neighbors.entrySet()){
+                key += entry.getValue();
+            }
+        }
+        return key;
+    }
+    
+    public ArrayList<Node> retrieveSummaryNodesModified(PacketRequest pktRequest){
+        int overlapThreshold = 10;
+        SummaryQuadTree sqTree = quadTrajTree.getSqTree();
+        
+        PriorityQueue<Pair> potentialOutNodes = new PriorityQueue<>();
+        PriorityQueue<Pair> potentialInNodes = new PriorityQueue<>();
+        HashSet<Node> exploredOutNodes = new HashSet<>();
+        HashSet<Node> exploredInNodes = new HashSet<>();
+        
+        HashMap<Node, OverlappingNodes> nodeReachabilityMap = new HashMap<>();
+        HashSet<Node> summaryNodes = new HashSet<>();
+        HashSet<Node> overlappingNodes = new HashSet<>();
+        
+        Node ancestor = null;
+        Node descendent = null;
+        
+        double xMin = pktRequest.getNormSrcLat()-latDisThreshold;
+        double xMax = pktRequest.getNormSrcLat()+latDisThreshold;
+        double yMin = pktRequest.getNormSrcLon()-lonDisThreshold;
+        double yMax = pktRequest.getNormSrcLon()+lonDisThreshold;
+        
+        // nearby blocks Ns
+        Node[] outgoingNodes = quadTrajTree.getSqTree().searchIntersect(xMin, yMin, xMax, yMax);
+        
+        xMin = pktRequest.getNormDestLat()-latDisThreshold;
+        xMax = pktRequest.getNormDestLat()+latDisThreshold;
+        yMin = pktRequest.getNormDestLon()-lonDisThreshold;
+        yMax = pktRequest.getNormDestLon()+lonDisThreshold;
+        
+        // nearby blocks Nd
+        Node[] incomingNodes = quadTrajTree.getSqTree().searchIntersect(xMin, yMin, xMax, yMax);
+        
+        // O gets Ns (say key = sum of outdegree
+        // we know every node is distinct in this array, no need to check color
+        for (Node node : outgoingNodes){
+            // add outgoing nodes to potential outnodes with appropriate key
+            potentialOutNodes.add(new Pair(calculateKey(sqTree.getSummaryGraph().get(node.getZCode())), node.getZCode()));
+            if (!nodeReachabilityMap.containsKey(node)){
+                nodeReachabilityMap.put(node, new OverlappingNodes(node));
+            }
+        }
+        
+        for (Node node : incomingNodes){
+            // add incoming nodes to potential innodes with appropriate key
+            potentialInNodes.add(new Pair(calculateKey(sqTree.getReverseSummaryGraph().get(node.getZCode())), node.getZCode()));
+            if (!nodeReachabilityMap.containsKey(node)){
+                nodeReachabilityMap.put(node, new OverlappingNodes(node));
+            }
+        }
+        
+        int overlapCount = 0;
+        
+        while(overlapCount < overlapThreshold){
+            if ((potentialOutNodes == null || potentialOutNodes.isEmpty()) && (potentialInNodes == null || potentialInNodes.isEmpty())){
+                // neither of the priority queues have any more elements
+                break;
+            }
+            if (potentialOutNodes != null && !potentialOutNodes.isEmpty()){
+                // next potential out block
+                Pair o = potentialOutNodes.poll();
+                Node oNode = sqTree.getqNodeIndexToNodeMap().get(o.getValue());
+                // need to do a color check
+                if (!exploredOutNodes.contains(oNode)){
+                    // add o to the list of nodes to be retrieved
+                    // summaryNodes.add(oNode);
+                    // add o to explored outnodes
+                    exploredOutNodes.add(oNode);
+                    // add neighbors of o to potential outnodes with appropriate keys
+                    HashMap <Long, Integer> neighbors = sqTree.getSummaryGraph().get(o.getValue());
+                    if (neighbors != null){
+                        ancestor = oNode;
+                        for (HashMap.Entry<Long, Integer> entry : neighbors.entrySet()){
+                            long neighborNodeZCode = entry.getKey();
+                            Node outNeighborNode = sqTree.getqNodeIndexToNodeMap().get(neighborNodeZCode);
+                            potentialOutNodes.add(new Pair(calculateKey(sqTree.getSummaryGraph().get(neighborNodeZCode)), neighborNodeZCode));
+                            if (!nodeReachabilityMap.containsKey(outNeighborNode)){
+                                nodeReachabilityMap.put(outNeighborNode, new OverlappingNodes(outNeighborNode));
+                            }
+                            OverlappingNodes n = nodeReachabilityMap.get(outNeighborNode);
+                            n.addToFrom(ancestor);
+                            nodeReachabilityMap.put(outNeighborNode, n);
+                        }
+                    }
+                    // check if this node overlaps with the explored incoming nodes
+                    if (exploredInNodes.contains(o)){
+                        overlapCount++;
+                        overlappingNodes.add(oNode);
+                    }
+                }
+            }
+            if (potentialInNodes != null && !potentialInNodes.isEmpty() && overlapCount < overlapThreshold){
+                // next potential in block
+                Pair i = potentialInNodes.poll();
+                Node iNode = sqTree.getqNodeIndexToNodeMap().get(i.getValue());
+                // need to do a color check
+                if (!exploredInNodes.contains(iNode)){
+                    // add i to the list of nodes to be retrieved
+                    // summaryNodes.add(iNode);
+                    // add i to explored innodes
+                    exploredInNodes.add(iNode);
+                    // add neighbors of i to potential innodes with appropriate keys
+                    HashMap <Long, Integer> neighbors = sqTree.getReverseSummaryGraph().get(i.getValue());
+                    if (neighbors != null){
+                        descendent = iNode;
+                        for (HashMap.Entry<Long, Integer> entry : neighbors.entrySet()){
+                            long neighborNodeZCode = entry.getKey();
+                            Node inNeighborNode = sqTree.getqNodeIndexToNodeMap().get(neighborNodeZCode);
+                            potentialInNodes.add(new Pair(calculateKey(sqTree.getReverseSummaryGraph().get(neighborNodeZCode)), neighborNodeZCode));
+                            if (!nodeReachabilityMap.containsKey(inNeighborNode)){
+                                nodeReachabilityMap.put(inNeighborNode, new OverlappingNodes(inNeighborNode));
+                            }
+                            OverlappingNodes n = nodeReachabilityMap.get(inNeighborNode);
+                            n.addToTo(descendent);
+                            nodeReachabilityMap.put(inNeighborNode, n);
+                        }
+                    }
+                    // check if this node overlaps with the explored outgoing nodes
+                    if (exploredOutNodes.contains(i)){
+                        overlapCount++;
+                        overlappingNodes.add(iNode);
+                    }
+                }
+            }
+        }
+        for (Node node : overlappingNodes){
+            OverlappingNodes connectedNodes = nodeReachabilityMap.get(node);
+            for (Node n : connectedNodes.getAllNodes()){
+                summaryNodes.add(n);
+            }
+        }
+        System.out.println("Retrieved Summary Nodes (Modified) Size = " + summaryNodes.size());
+        System.out.println("Retrieved Overlapping Summary Nodes (Modified) Size = " + overlappingNodes.size() + ", overlap count = " + overlapCount);
+        return new ArrayList<Node>(summaryNodes);
+    }
+    
+    ArrayList<Trajectory> retrieveTrajsFromSummaryNodes(ArrayList<Node> summaryNodes){
+        HashSet<Node> baseQuadTreeNodes = new HashSet<>();
+        QuadTree baseQuadTree = quadTrajTree.getQuadTree();
+        for (Node node : summaryNodes){
+            double xMin = node.getX();
+            double yMin = node.getY();
+            double xMax = xMin + node.getW();
+            double yMax = yMin + node.getH();
+            Node[] intersectingNodes = baseQuadTree.searchIntersect(xMin, yMin, xMax, yMax);
+            for (Node n : intersectingNodes){
+                // pending : temporal filtering
+                // check for time bucket intersection of base quadtree node and summary node
+                // prune if the time windows are disjoint
+                baseQuadTreeNodes.add(n);
+            }
+        }
+        System.out.println("Retrieved base quad tree nodes = " + baseQuadTreeNodes.size());
+        
+        // trajectory retrieval
+        HashSet<Trajectory>retrievedTrajs = new HashSet<>();
+        for (Node node : baseQuadTreeNodes){
+            HashMap<Integer, HashSet<Object>> timeBucketToDiskBlockMap = node.getTimeBucketToDiskBlockIdMap();
+            if (timeBucketToDiskBlockMap == null) continue;
+            for (HashMap.Entry<Integer, HashSet<Object>> entry : timeBucketToDiskBlockMap.entrySet()){
+                
+                HashSet<Object> allDiskBlocks = entry.getValue();
+                if (allDiskBlocks == null) continue;
+                for (Object diskBlockId : allDiskBlocks){
+                    
+                    ArrayList<String> allTrajIds = trajStorage.getTrajIdListByBlockId((Integer)diskBlockId);
+                    if (allTrajIds == null) continue;
+                    for (String trajId : allTrajIds){
+                        Trajectory traj = trajStorage.getTrajectoryById(trajId);
+                        if (traj == null){
+                            System.out.println("Why null? " + trajId);
+                        }
+                        retrievedTrajs.add(traj);
+                        
+                    }
+                }
+            }
+        }
+        System.out.println("Retrieved trajectories = " + retrievedTrajs.size());
+        
+        return new ArrayList<>(retrievedTrajs);
     }
     
     // find the best deliverers only for now
     public ArrayList<Trajectory> deliverPacket(PacketRequest pktRequest){
-        ArrayList<Trajectory> bestDeliveres = new ArrayList<>();
-        retrieveSummaryNodes(pktRequest);
+        // the correctness of the following methods should be rechecked
+        // the following one is giving some overlapping nodes, so using it
+        ArrayList<Node> summaryNodes = retrieveSummaryNodes(pktRequest);
+        // the following ones are not giving any overlapping nodes
+        //retrieveSummaryNodesOriginal(pktRequest);
+        //retrieveSummaryNodesModified(pktRequest);
+        ArrayList<Trajectory> bestDeliveres = retrieveTrajsFromSummaryNodes(summaryNodes);
         return bestDeliveres;
     }
     
@@ -362,6 +698,40 @@ public class ServiceQueryProcessor {
         }
         return contactInfo;
     }
+}
+
+class OverlappingNodes{
+    Node node;
+    HashSet<Node> from;
+    HashSet<Node> to;
+
+    public OverlappingNodes() {
+        from = new HashSet<>();
+        to = new HashSet<>();
+    }
+    
+    public OverlappingNodes(Node node) {
+        this.node = node;
+        from = new HashSet<>();
+        to = new HashSet<>();
+    }
+    
+    public void addToFrom(Node node){
+        from.add(node);
+    }
+    
+    public void addToTo(Node node){
+        to.add(node);
+    }
+    
+    public ArrayList<Node> getAllNodes(){
+        HashSet <Node> allNodes = new HashSet<>();
+        allNodes.add(node);
+        for (Node node : from) allNodes.add(node);
+        for (Node node : to) allNodes.add(node);
+        return new ArrayList<>(allNodes);
+    }
+    
 }
 
 class Pair implements Comparable<Pair>{

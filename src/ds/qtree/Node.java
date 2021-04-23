@@ -202,6 +202,10 @@ public class Node {
         return new ArrayList<Object>(timeBucketToDiskBlockIdMap.get(timeBucket));
     }
 
+    public HashMap<Integer, HashSet<Object>> getTimeBucketToDiskBlockIdMap() {
+        return timeBucketToDiskBlockIdMap;
+    }
+
     @Override
     public String toString() {
             return "Node [x=" + x + ", y=" + y + ", w=" + w + ", h=" + h + "]";
