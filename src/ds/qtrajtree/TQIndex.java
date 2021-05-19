@@ -141,8 +141,16 @@ public class TQIndex {
             trajectories = this.trajStorage.getNextChunkAsList();
         }
         sqTree.assignZCodesToLeaves(sqTree.getRootNode(), 0);
+        // qNodeIndexToNodeMap mapping done
+        
         sqTree.transformTrajSummary(sqTree.getRootNode());
+        // including time
+        
         sqTree.buildSummaryNetwork();
+        
+        // sqTree.tagTrajIdToTimeBuckets();
+        
+        //sqTree.printTimeBucketHistogramData();
         
         trajStorage.clearQNodeToPointListMap();
     }

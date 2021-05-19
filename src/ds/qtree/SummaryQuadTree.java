@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * Datastructure: A point Quad Tree for representing 2D data. Each
@@ -511,6 +512,59 @@ public class SummaryQuadTree {
         tagDiskBlockIdsToNodes(node.getNe());
         tagDiskBlockIdsToNodes(node.getSw());
         tagDiskBlockIdsToNodes(node.getSe());
+    }
+    
+    public void tagTrajIdToTimeBuckets(){
+        // for printing time bucket stats
+        HashMap<Integer, Integer> timeBucketHistogram = new HashMap<>();
+        HashMap<Integer, HashSet<Long>> timeBucketNodeHistogram = new HashMap<>();
+        HashMap<Long, HashSet<Integer>> nodeTimeBucketHistogram = new HashMap<>();
+        // remove the line above and associated codes later
+        HashMap<String,TransformedTrajectory> summaryTrajs = trajStorage.getSummaryTrajData();
+        for (HashMap.Entry<String,TransformedTrajectory> entry : summaryTrajs.entrySet()){
+            TransformedTrajectory summaryTraj = entry.getValue();
+            
+            TreeSet <TransformedTrajPoint> pointList = summaryTraj.getTransformedPointList();
+            for (TransformedTrajPoint point : pointList){
+                int timeIndex = getTimeIndex(point.getTimeInSec());
+                if (timeIndex > 0){
+                    String trajId = summaryTraj.getAnonymizedId();
+                    //Object diskBlockId = trajStorage.getDiskBlockIdByTrajId(trajId);
+                    long nodeZCode = point.getqNodeIndex();
+                    Node node = getqNodeIndexToNodeMap().get(nodeZCode);
+                    node.addDiskBlockId(timeIndex, timeIndex);
+                    // for printing time bucket stats
+                    if (!timeBucketHistogram.containsKey(timeIndex)){
+                        timeBucketHistogram.put(timeIndex, 0);
+                    }
+                    if (!timeBucketNodeHistogram.containsKey(timeIndex)){
+                        timeBucketNodeHistogram.put(timeIndex, new HashSet<>());
+                    }
+                    if (!nodeTimeBucketHistogram.containsKey(nodeZCode)){
+                        nodeTimeBucketHistogram.put(nodeZCode, new HashSet<>());
+                    }
+                    timeBucketHistogram.put(timeIndex, timeBucketHistogram.get(timeIndex)+1);
+                    timeBucketNodeHistogram.get(timeIndex).add(nodeZCode);
+                    nodeTimeBucketHistogram.get(nodeZCode).add(timeIndex);
+                    // remove the lines above later
+                }
+            }
+        }
+        // for printing time bucket stats
+        System.out.println("Printing time bucket traj and node count");
+        for (HashMap.Entry<Integer, HashSet<Long>> entry : timeBucketNodeHistogram.entrySet()){
+            int trajCount = timeBucketHistogram.get(entry.getKey());
+            int nodeCount = entry.getValue().size();
+            System.out.println("Bucket " + entry.getKey() + "\t" + nodeCount + "\t" + trajCount);
+        }
+        System.out.println("Priting node-wise time buckets");
+        for (HashMap.Entry<Long, HashSet<Integer>> entry : nodeTimeBucketHistogram.entrySet()){
+            System.out.print(entry.getKey()+"\t");
+            for (Integer timeBucket : entry.getValue()){
+                System.out.print("\t" + timeBucket);
+            }
+            System.out.println("");
+        }
     }
         
     public void transformTrajSummary(Node node){

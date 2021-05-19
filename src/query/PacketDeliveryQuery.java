@@ -8,6 +8,7 @@ package query;
 import java.util.HashMap;
 import java.util.Random;
 import javafx.util.Pair;
+import query.service.DistanceConverter;
 
 /**
  *
@@ -15,8 +16,11 @@ import javafx.util.Pair;
  */
 public class PacketDeliveryQuery {
 
-    HashMap<Integer, Pair<Double, Double>> stoppageMap;
-    HashMap<Integer, Pair<Double, Double>> normalizedStoppageMap;
+    private HashMap<Integer, Pair<Double, Double>> stoppageMap;
+    private HashMap<Integer, Pair<Double, Double>> normalizedStoppageMap;
+    private DistanceConverter distanceConverter;
+    private double minDisThreshold;
+    private String distanceUnit;
     // besides normalization, some stops out of bound are pruned in this hash map
     // so better to generate src, dest id from the normalized map
     PacketRequest pktReq;
@@ -25,9 +29,13 @@ public class PacketDeliveryQuery {
         
     }
         
-    public PacketDeliveryQuery(HashMap<Integer, Pair<Double, Double>> stoppageMap, HashMap<Integer, Pair<Double, Double>> normalizedStoppageMap) {
+    public PacketDeliveryQuery(HashMap<Integer, Pair<Double, Double>> stoppageMap, HashMap<Integer, Pair<Double, Double>> normalizedStoppageMap,
+                                DistanceConverter distanceConverter, double minDisThreshold, String distanceUnit) {
         this.stoppageMap = stoppageMap;
         this.normalizedStoppageMap = normalizedStoppageMap;
+        this.distanceConverter = distanceConverter;
+        this.minDisThreshold = minDisThreshold;
+        this.distanceUnit = distanceUnit;
         pktReq = new PacketRequest();
     }
     
@@ -36,18 +44,36 @@ public class PacketDeliveryQuery {
         // create another class if needed
         int from, to;
         from = to = -1;
+        boolean isValid = false;
         Random random = new Random();
-        for (HashMap.Entry<Integer, Pair<Double, Double>> entry : normalizedStoppageMap.entrySet()){
-            if (random.nextDouble() > 0.8){
-                if (from == -1){
-                    from = entry.getKey();
-                }
-                else{
-                    to = entry.getKey();
-                    break;
+        while(!isValid){
+            for (HashMap.Entry<Integer, Pair<Double, Double>> fromEntry : normalizedStoppageMap.entrySet()){
+                if (random.nextDouble() > 0.8){
+                    from = fromEntry.getKey();
+                    for (HashMap.Entry<Integer, Pair<Double, Double>> toEntry : normalizedStoppageMap.entrySet()){
+                        if (random.nextDouble() > 0.8){
+                            to = toEntry.getKey();
+                            if (from == to) continue;
+
+                            double lat1 = stoppageMap.get(from).getKey();
+                            double lon1 = stoppageMap.get(from).getValue();
+                            double lat2 = stoppageMap.get(to).getKey();
+                            double lon2 = stoppageMap.get(to).getValue();
+
+                            if (distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit) >= minDisThreshold){
+                                isValid = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (isValid) break;
                 }
             }
         }
+        // for debug purpose only
+        //from = 4;
+        //to = 12;
+        //
         pktReq.setSrcId(from);
         pktReq.setDestId(to);
         pktReq.setSrcLat(stoppageMap.get(from).getKey());
@@ -63,5 +89,17 @@ public class PacketDeliveryQuery {
     public PacketRequest getPacketRequest() {
         return pktReq;
     }
-    
+
+    @Override
+    public String toString() {
+        double lat1 = pktReq.getSrcLat();
+        double lon1 = pktReq.getSrcLon();
+        double lat2 = pktReq.getDestLat();
+        double lon2 = pktReq.getDestLon();
+        double dis = distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit);
+        
+        String pktDeliveryQueryStr = pktReq.toString();
+        pktDeliveryQueryStr += "Distance of src and dest = " + dis + " " + distanceUnit + "\n";
+        return pktDeliveryQueryStr;
+    }
 }

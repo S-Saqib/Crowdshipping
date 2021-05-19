@@ -5,31 +5,48 @@ import java.util.ArrayList;
 import ds.qtrajtree.TQIndex;
 import ds.trajectory.TrajPoint;
 import ds.trajectory.Trajectory;
+import ds.trajgraph.TrajGraph;
+import ds.trajgraph.TrajGraphNode;
 import java.util.HashMap;
 import java.util.TreeSet;
 import query.PacketRequest;
 
 public class TestServiceQuery {
 
-    public static void run(TrajStorage trajStorage, TQIndex quadTrajTree, PacketRequest pktRequest,
+    public static boolean run(TrajStorage trajStorage, TQIndex quadTrajTree, PacketRequest pktRequest,
                             double latDisThreshold, double lonDisThreshold, long temporalDisThreshold) {
 
         //int numberOfRuns = 10;
         //double naiveTime = 0, zOrderTime = 0;
         //for (int i = 0; i < numberOfRuns; i++) {
-            ServiceQueryProcessor processQuery = new ServiceQueryProcessor(trajStorage, quadTrajTree, latDisThreshold, lonDisThreshold, temporalDisThreshold);
+            ServiceQueryProcessor processQuery = new ServiceQueryProcessor(trajStorage, quadTrajTree,
+                                                                latDisThreshold, lonDisThreshold, temporalDisThreshold);
             //System.out.println("--Service Query--");
             //System.out.println("Optimal:");
             //double from = System.nanoTime();
             
             // assuming only the best one is returned
-            ArrayList <Trajectory> bestDeliverers = processQuery.deliverPacket(pktRequest);
-            System.out.println("best deliverers size = " + bestDeliverers.size());
             /*
-            for (Trajectory deliverer : bestDeliverers){
-                System.out.println(deliverer.getUserId() + " " + deliverer.getTrajId());
+            ArrayList <TrajGraphNode> bestDeliverers = processQuery.deliverPacket(pktRequest);
+            System.out.println("Best deliverers size = " + bestDeliverers.size());
+            for (TrajGraphNode deliverer : bestDeliverers){
+                System.out.print(deliverer.getStopId() + " " + deliverer.getTrajId() + " - ");
+            }
+            System.out.println("\n------------------------------------------------------");
+            ArrayList <TrajGraphNode> bestDeliverersOriginal = processQuery.deliverPacketOriginal(pktRequest);
+            System.out.println("Best deliverers (original) size = " + bestDeliverersOriginal.size());
+            for (TrajGraphNode deliverer : bestDeliverersOriginal){
+                System.out.print(deliverer.getStopId() + " " + deliverer.getTrajId() + " - ");
             }
             */
+            //System.out.println("\n------------------------------------------------------");
+            ArrayList <TrajGraphNode> bestDeliverersModified = processQuery.deliverPacketModified(pktRequest);
+            System.out.println("Best deliverers (modified) size = " + bestDeliverersModified.size());
+            for (TrajGraphNode deliverer : bestDeliverersModified){
+                System.out.print("<" + deliverer.getStopId() + ", " + deliverer.getTrajId() + "> - ");
+            }
+            System.out.println("\n------------------------------------------------------");
+            
             // HashMap<String, TreeSet<TrajPoint>> infectedContacts = new HashMap<String, TreeSet<TrajPoint>>();
             // infectedContacts = processQuery.evaluateService(quadTrajTree.getQuadTree().getRootNode(), facilityGraph, infectedContacts);
             //infectedContacts = processQuery.calculateCover(quadTrajTree.getQuadTree(), facilityGraph, infectedContacts);
@@ -63,5 +80,6 @@ public class TestServiceQuery {
         //naiveTime /= numberOfRuns;
         //zOrderTime /= numberOfRuns;
         //System.out.println (naiveTime + "\n" + zOrderTime);
+        return !bestDeliverersModified.isEmpty();
     }
 }

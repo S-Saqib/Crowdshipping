@@ -3,6 +3,7 @@ package ds.qtree;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Objects;
 
 public class Node {
 
@@ -208,6 +209,40 @@ public class Node {
 
     @Override
     public String toString() {
-            return "Node [x=" + x + ", y=" + y + ", w=" + w + ", h=" + h + "]";
+        return "Node [x=" + x + ", y=" + y + ", w=" + w + ", h=" + h + "]";
     }
+
+    @Override
+    public int hashCode() {
+        int hash = Objects.hash(x, y, w, h);
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final Node other = (Node) obj;
+        if (Double.doubleToLongBits(this.x) != Double.doubleToLongBits(other.x)) {
+            return false;
+        }
+        if (Double.doubleToLongBits(this.y) != Double.doubleToLongBits(other.y)) {
+            return false;
+        }
+        if (Double.doubleToLongBits(this.w) != Double.doubleToLongBits(other.w)) {
+            return false;
+        }
+        if (Double.doubleToLongBits(this.h) != Double.doubleToLongBits(other.h)) {
+            return false;
+        }
+        return true;
+    }
+    
 }

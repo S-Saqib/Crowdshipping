@@ -114,6 +114,10 @@ public class DistanceConverter {
         return Math.abs(distance(unit));
     }
     
+    public double absDistance(double lat1,  double lat2, double lon1, double lon2, String unit){
+        return Math.abs(distance(lat1, lat2, lon1, lon2, unit));
+    }
+    
     public double avgAbsLatDistance(String unit){
         double latDis1 = distance(maxLat, minLat, maxLon, maxLon, unit);
         double latDis2 = distance(maxLat, minLat, minLon, minLon, unit);

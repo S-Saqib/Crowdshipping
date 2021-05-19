@@ -16,10 +16,13 @@ import ds.qtree.SummaryQuadTree;
 import ds.trajectory.TrajPoint;
 import ds.trajectory.TrajPointComparator;
 import ds.trajectory.Trajectory;
+import ds.trajgraph.TrajGraph;
+import ds.trajgraph.TrajGraphNode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.TreeSet;
 import query.PacketRequest;
@@ -35,6 +38,7 @@ public class ServiceQueryProcessor {
     private double lonDisThreshold;
     private double temporalDisThreshold;
     private TrajStorage trajStorage;
+    private TrajGraph trajGraph;
 
     public ServiceQueryProcessor(TrajStorage trajStorage, TQIndex quadTrajTree, double latDisThreshold, double lonDisThreshold, long temporalDisThreshold) {
         this.quadTrajTree = quadTrajTree;
@@ -42,6 +46,7 @@ public class ServiceQueryProcessor {
         this.lonDisThreshold = lonDisThreshold;
         this.temporalDisThreshold = temporalDisThreshold;
         this.trajStorage = trajStorage;
+        this.trajGraph = trajGraph;
     }
     
     public ServiceQueryProcessor(TQIndex quadTrajTree) {
@@ -100,8 +105,8 @@ public class ServiceQueryProcessor {
         
         Node[] incomingNodes = quadTrajTree.getSqTree().searchIntersect(xMin, yMin, xMax, yMax);
         
-        System.out.println("Outgoing nodes size = " + outgoingNodes.length);
-        System.out.println("Incoming nodes size = " + incomingNodes.length);
+        //System.out.println("Outgoing nodes size = " + outgoingNodes.length);
+        //System.out.println("Incoming nodes size = " + incomingNodes.length);
         
         for (Node node : outgoingNodes){
             HashMap <Long, Integer> outNeighbors = sqTree.getSummaryGraph().get(node.getZCode());
@@ -135,10 +140,13 @@ public class ServiceQueryProcessor {
             else summaryNodes.put(node, 2); // 2 denotes only incoming
         }
         // printing overlapping nodes after the initial outgoing and incoming nodes check
-        System.out.println("Overlapping nodes initial size = " + overlappingNodes.size());
+        //System.out.println("Overlapping nodes initial size = " + overlappingNodes.size());
+        /*
+        System.out.println("Initial overlapping nodes:");
         for (Node node : overlappingNodes){
             System.out.println(node.getZCode());
         }
+        */
         
         boolean explore = true;
         while(overlappingNodes.size() < overlapThreshold){
@@ -191,7 +199,7 @@ public class ServiceQueryProcessor {
             }
         }
         
-        System.out.println("Retrieved Summary Nodes Size = " + summaryNodes.size());
+        // System.out.println("Retrieved Summary Nodes Size = " + summaryNodes.size());
         /*
         for (Node node : summaryNodes.keySet()){
             System.out.println(node.getZCode());
@@ -200,7 +208,7 @@ public class ServiceQueryProcessor {
         // return new ArrayList<Node>(summaryNodes.keySet());
         
         
-        System.out.println("Retrieved Overlapping Summary Nodes Size = " + overlappingNodes.size());
+        // System.out.println("Retrieved Overlapping Summary Nodes Size = " + overlappingNodes.size());
         /*
         for (Node node : overlappingNodes){
             System.out.println(node.getZCode());
@@ -211,7 +219,7 @@ public class ServiceQueryProcessor {
     }
     
     public ArrayList<Node> retrieveSummaryNodesOriginal(PacketRequest pktRequest){
-        int overlapThreshold = 10;
+        int overlapThreshold = 5;
         SummaryQuadTree sqTree = quadTrajTree.getSqTree();
         
         PriorityQueue<Pair> potentialOutNodes = new PriorityQueue<>();
@@ -276,7 +284,7 @@ public class ServiceQueryProcessor {
                         }
                     }
                     // check if this node overlaps with the explored incoming nodes
-                    if (exploredInNodes.contains(o)){
+                    if (exploredInNodes.contains(oNode)){
                         overlapCount++;
                     }
                 }
@@ -300,15 +308,15 @@ public class ServiceQueryProcessor {
                         }
                     }
                     // check if this node overlaps with the explored outgoing nodes
-                    if (exploredOutNodes.contains(i)){
+                    if (exploredOutNodes.contains(iNode)){
                         overlapCount++;
                     }
                 }
             }
         }
-        System.out.println("Retrieved Summary Nodes (Original) Size = " + summaryNodes.size());
-        System.out.println("Retrieved Overlap Count (Original) = " + overlapCount);
-        System.out.println("Unexplored outnodes = " + potentialOutNodes.size() + " , Unexplored innodes = " + potentialInNodes.size());
+        // System.out.println("Retrieved Summary Nodes (Original) Size = " + summaryNodes.size());
+        // System.out.println("Retrieved Overlap Count (Original) = " + overlapCount);
+        //System.out.println("Unexplored outnodes = " + potentialOutNodes.size() + " , Unexplored innodes = " + potentialInNodes.size());
         return new ArrayList<Node>(summaryNodes);
     }
     
@@ -333,7 +341,7 @@ public class ServiceQueryProcessor {
     }
     
     public ArrayList<Node> retrieveSummaryNodesModified(PacketRequest pktRequest){
-        int overlapThreshold = 10;
+        int overlapThreshold = 5;
         SummaryQuadTree sqTree = quadTrajTree.getSqTree();
         
         PriorityQueue<Pair> potentialOutNodes = new PriorityQueue<>();
@@ -416,7 +424,7 @@ public class ServiceQueryProcessor {
                         }
                     }
                     // check if this node overlaps with the explored incoming nodes
-                    if (exploredInNodes.contains(o)){
+                    if (exploredInNodes.contains(oNode)){
                         overlapCount++;
                         overlappingNodes.add(oNode);
                     }
@@ -449,7 +457,7 @@ public class ServiceQueryProcessor {
                         }
                     }
                     // check if this node overlaps with the explored outgoing nodes
-                    if (exploredOutNodes.contains(i)){
+                    if (exploredOutNodes.contains(iNode)){
                         overlapCount++;
                         overlappingNodes.add(iNode);
                     }
@@ -462,8 +470,8 @@ public class ServiceQueryProcessor {
                 summaryNodes.add(n);
             }
         }
-        System.out.println("Retrieved Summary Nodes (Modified) Size = " + summaryNodes.size());
-        System.out.println("Retrieved Overlapping Summary Nodes (Modified) Size = " + overlappingNodes.size() + ", overlap count = " + overlapCount);
+        // System.out.println("Retrieved Summary Nodes (Modified) Size = " + summaryNodes.size());
+        // System.out.println("Retrieved Overlapping Summary Nodes (Modified) Size = " + overlappingNodes.size() + ", overlap count = " + overlapCount);
         return new ArrayList<Node>(summaryNodes);
     }
     
@@ -483,7 +491,7 @@ public class ServiceQueryProcessor {
                 baseQuadTreeNodes.add(n);
             }
         }
-        System.out.println("Retrieved base quad tree nodes = " + baseQuadTreeNodes.size());
+        // System.out.println("Retrieved base quad tree nodes = " + baseQuadTreeNodes.size());
         
         // trajectory retrieval
         HashSet<Trajectory>retrievedTrajs = new HashSet<>();
@@ -514,15 +522,263 @@ public class ServiceQueryProcessor {
         return new ArrayList<>(retrievedTrajs);
     }
     
+    public TrajGraph constructTrajGraph(ArrayList<Trajectory> trajectoryList){
+        //return constructDummyTrajGraph(trajectoryList);
+        
+        TrajGraph trajGraph = new TrajGraph();
+        for (Trajectory trajectory : trajectoryList){
+            TrajPoint prevPoint = null;
+            String trajId = trajectory.getTrajId();
+            Integer stopId = null;
+            for (TrajPoint trajPoint : trajectory.getPointList()){
+                stopId = trajPoint.getStoppage().getStopId();
+                if (stopId == null){
+                    // should never reach here
+                    System.out.println("Terminating abruptly...");
+                    System.out.println(trajPoint);
+                    System.exit(0);
+                }
+                if (trajId == null){
+                    // should never reach here
+                    System.out.println("Terminating abruptly...");
+                    System.out.println(trajectory);
+                    System.exit(0);
+                }
+                if (prevPoint != null){
+                    trajGraph.addTrajIdToStop(prevPoint.getStoppage().getStopId(), trajId);
+                    // starting working without time
+                    //TrajGraphNode fromNode = new TrajGraphNode(prevPoint.getStoppage().getStopId(), false, prevPoint.getTimeInSec(), trajectory.getTrajId());
+                    //TrajGraphNode toNode = new TrajGraphNode(trajPoint.getStoppage().getStopId(), false, trajPoint.getTimeInSec(), trajectory.getTrajId());
+                    TrajGraphNode fromNode = new TrajGraphNode(prevPoint.getStoppage().getStopId(), trajId);
+                    TrajGraphNode toNode = new TrajGraphNode(stopId, trajId);
+                    trajGraph.addToList(fromNode, toNode);
+                }
+                prevPoint = trajPoint;
+            }
+            if (stopId != null){
+                trajGraph.addTrajIdToStop(stopId, trajId);
+                trajGraph.addStop(stopId);
+                trajGraph.addNode(new TrajGraphNode(stopId, trajId));
+            }
+        }
+        //trajGraph.printStats();
+        //trajGraph.printDetails();
+        //trajGraph.printNeighborsOfNNodes(10);
+        //System.out.println("Trajectory join in TrajGraph...");
+        double fromTime = System.nanoTime();
+        trajGraph = joinNodesByKeeper(trajGraph);
+        //System.out.println("Time = " + (System.nanoTime() - fromTime)/1e9 + " s");
+        //trajGraph.printStats();
+        //trajGraph.printDetails();
+        //trajGraph.printNeighborsOfNNodes(10);
+        //trajGraph.printNStopToTrajIds(100);
+        return trajGraph;
+        
+    }
+    
+    public TrajGraph constructDummyTrajGraph(ArrayList<Trajectory> trajectoryList){
+        TrajGraph trajGraph = new TrajGraph();
+        String []trajIds = {"black", "blue", "red", "green"};
+        int [][]stopIds = {{1,2,3,4},{5,6,3,7},{10,6,11},{8,3,9}};    // test case 1
+        //int [][]stopIds = {{1,2,3},{5,6,3,7},{10,6,11},{8,3,9}};    // test case 2
+        //int [][]stopIds = {{1,2,3},{5,6,7},{10,6,11},{8,3,9}};    // test case 3
+        String trajId;
+        int prevStopId, stopId;
+        for (int i=0; i<trajIds.length; i++){
+            trajId = trajIds[i];
+            stopId = -1;
+            for (int j=1; j<stopIds[i].length; j++){
+                prevStopId = stopIds[i][j-1];
+                stopId = stopIds[i][j];
+                trajGraph.addTrajIdToStop(prevStopId, trajId);
+                TrajGraphNode fromNode = new TrajGraphNode(prevStopId, trajId);
+                TrajGraphNode toNode = new TrajGraphNode(stopId, trajId);
+                trajGraph.addToList(fromNode, toNode);
+            }
+            if (stopId != -1){
+                trajGraph.addTrajIdToStop(stopId, trajId);
+                trajGraph.addStop(stopId);
+                trajGraph.addNode(new TrajGraphNode(stopId, trajId));
+            }
+        }
+        trajGraph.printStats();
+        trajGraph.printDetails();
+        //trajGraph.printTraversalOfNNodes(100);
+        //System.out.println("Trajectory join in TrajGraph...");
+        //double fromTime = System.nanoTime();
+        trajGraph = joinNodesByKeeper(trajGraph);
+        //System.out.println("Time = " + (System.nanoTime() - fromTime)/1e9 + " s");
+        trajGraph.printStats();
+        trajGraph.printDetails();
+        //trajGraph.printNeighborsOfNNodes(100);
+        //trajGraph.printNStopToTrajIds(100);
+        return trajGraph;
+    }
+    
+    TrajGraph joinNodesByKeeper(TrajGraph trajGraph){
+        int newEdges = 0;
+        HashMap<Integer, HashSet<String>> stopToTrajIdMap = trajGraph.getStopToTrajIdMap();
+        for (HashMap.Entry<Integer, HashSet<String>> stopToTrajsEntry : stopToTrajIdMap.entrySet()){
+            int stopId = stopToTrajsEntry.getKey();
+            HashSet <String> stopToTrajs = stopToTrajsEntry.getValue();
+            if (stopToTrajs.size() < 2) continue;
+            String keeperId = "K-"+stopId;
+            //System.out.println("Keeper K-" + stopId + " added");
+            TrajGraphNode node1 = new TrajGraphNode(stopId, keeperId, true);
+            for (String trajId : stopToTrajs){
+                TrajGraphNode node2 = new TrajGraphNode(stopId, trajId);
+                trajGraph.addToList(node1, node2);
+                trajGraph.addToList(node2, node1);
+                newEdges += 2;
+            }
+            trajGraph.addTrajIdToStop(stopId, keeperId);
+        }
+        //System.out.println("New edges = " + newEdges);
+        return trajGraph;
+    }
+    
+    ArrayList<TrajGraphNode> traverseToDeliver(TrajGraph trajGraph, PacketRequest pktRequest){
+        
+        int srcStopId = pktRequest.getSrcId();
+        int destStopId = pktRequest.getDestId();
+        PriorityQueue<NodeState> explorableNodes = new PriorityQueue<>();
+        HashMap <NodeState, NodeState> parentMap = new HashMap<>();
+        HashSet <TrajGraphNode> colorSet = new HashSet<>();
+        HashMap <TrajGraphNode, NodeState> enqueuedState = new HashMap<>();
+        // construct TrajGraphNodes with stopId, trajId (to be obtained from stopToTraj HashMap)
+        // enqueue all those nodes (temporal and other processing based pruning) to be done later
+        System.out.println("src stop id = " + srcStopId + ", dest stop id = " + destStopId);
+        HashSet <String> stopTrajIds = trajGraph.getStopToTrajIds(srcStopId);
+        if (stopTrajIds == null){
+            System.out.println("No trajs from stop id " + srcStopId);
+            stopTrajIds = new HashSet<>();
+        }
+        //System.out.println("# of traj from src stop id = " + stopTrajIds.size());
+        for (String trajId : stopTrajIds){
+            TrajGraphNode srcNode = new TrajGraphNode(srcStopId, trajId);
+            double cost = 0;
+            // cost of a src state is 0 and parent state of it is null
+            if (enqueuedState.containsKey(srcNode) && cost >= enqueuedState.get(srcNode).getCost()){
+                // do nothing since a lower cost state for this node is already enqueued
+            }
+            else{
+                NodeState srcState = new NodeState(srcNode, cost, null);
+                if (enqueuedState.containsKey(srcNode)){
+                    NodeState oldState = enqueuedState.get(srcNode);
+                    NodeState oldParentState = oldState.getParentState();
+                    NodeState newParentState = srcState.getParentState();
+                    TrajGraphNode oldParentNode, newParentNode;
+                    if (oldParentState == null) oldParentNode = new TrajGraphNode(-1, "-1");
+                    else oldParentNode = oldParentState.getTrajGraphNode();
+                    if (newParentState == null) newParentNode = new TrajGraphNode(-1, "-1");
+                    else newParentNode = newParentState.getTrajGraphNode();
+                    System.out.print("Node <" + srcNode.getStopId() + "," + srcNode.getTrajId() + ">, Parent = <");
+                    System.out.print(oldParentNode.getStopId() + "," + oldParentNode.getTrajId() + ">, Cost = " + oldState.getCost() + " removed ");
+                    System.out.println(newParentNode.getStopId() + "," + newParentNode.getTrajId() + ">, Cost = " + srcState.getCost() + " added ");
+                    explorableNodes.remove(oldState);
+                }
+                enqueuedState.put(srcNode, srcState);
+                explorableNodes.add(srcState);
+            }
+        }
+
+        NodeState curNodeState = null;
+        while(!explorableNodes.isEmpty()) {
+            curNodeState = explorableNodes.poll();
+            TrajGraphNode curNode = curNodeState.getTrajGraphNode();
+            parentMap.put(curNodeState, curNodeState.getParentState());
+            colorSet.add(curNode);
+            if (curNode.getStopId() == destStopId) break;
+            ArrayList <TrajGraphNode> neighbors = trajGraph.getNeighbors(curNode);
+            //System.out.println("Neighbors of <" + curNode.getStopId() + "," + curNode.getTrajId() + "> : Size = " + neighbors.size());
+            for (TrajGraphNode node : neighbors){
+                //System.out.print(node.getStopId() + " , ");
+                if (colorSet.contains(node)) continue;
+                double cost = computeCost(curNodeState, node);    // to be implemented
+                if (enqueuedState.containsKey(node) && cost >= enqueuedState.get(node).getCost()){
+                    // do nothing since a lower cost state for this node is already enqueued
+                }
+                else{
+                    NodeState neighborNodeState = new NodeState(node, cost, curNodeState);
+                    // do we need to remove the previous nodestate with higher cost?
+                    // that may be a bit difficult to do, but trying in the following line
+                    if (enqueuedState.containsKey(node)){
+                        NodeState oldState = enqueuedState.get(node);
+                        NodeState oldParentState = oldState.getParentState();
+                        NodeState newParentState = neighborNodeState.getParentState();
+                        TrajGraphNode oldParentNode, newParentNode;
+                        if (oldParentState == null) oldParentNode = new TrajGraphNode(-1, "-1");
+                        else oldParentNode = oldParentState.getTrajGraphNode();
+                        if (newParentState == null) newParentNode = new TrajGraphNode(-1, "-1");
+                        else newParentNode = newParentState.getTrajGraphNode();
+                        System.out.print("Node <" + node.getStopId() + "," + node.getTrajId() + ">, Parent = <");
+                        System.out.print(oldParentNode.getStopId() + "," + oldParentNode.getTrajId() + ">, Cost = " + oldState.getCost() + " removed and Parent = <");
+                        System.out.println(newParentNode.getStopId() + "," + newParentNode.getTrajId() + ">, Cost = " + neighborNodeState.getCost() + " added ");
+                        explorableNodes.remove(oldState);
+                    }
+                    enqueuedState.put(node, neighborNodeState);
+                    explorableNodes.add(neighborNodeState);
+                    //System.out.println("Enqueued : " + neighborNodeState.getTrajGraphNode().getStopId());
+                }
+            }
+            //System.out.println("");
+        }
+        
+        ArrayList<TrajGraphNode> bestDeliverers = new ArrayList<>();
+        
+        double cost;
+        if (curNodeState == null || curNodeState.getTrajGraphNode().getStopId() != destStopId){
+            cost = Double.MAX_VALUE;
+        }
+        else{
+            cost = curNodeState.getCost();
+            while(curNodeState != null){
+                if (!parentMap.containsKey(curNodeState)){
+                    System.out.println("Alert : Unreachable i.e. cannot be delivered");
+                    break;
+                }
+                bestDeliverers.add(0, curNodeState.getTrajGraphNode());
+                curNodeState = parentMap.get(curNodeState);
+            }
+        }
+        System.out.println("Cost = " + cost);
+        
+        return bestDeliverers;
+    }
+    
+    double computeCost(NodeState edgeFromNodeState, TrajGraphNode edgeToNode){
+        double cost = edgeFromNodeState.getCost() + 1;
+        return cost;
+    }
     // find the best deliverers only for now
-    public ArrayList<Trajectory> deliverPacket(PacketRequest pktRequest){
-        // the correctness of the following methods should be rechecked
-        // the following one is giving some overlapping nodes, so using it
-        ArrayList<Node> summaryNodes = retrieveSummaryNodes(pktRequest);
-        // the following ones are not giving any overlapping nodes
-        //retrieveSummaryNodesOriginal(pktRequest);
-        //retrieveSummaryNodesModified(pktRequest);
-        ArrayList<Trajectory> bestDeliveres = retrieveTrajsFromSummaryNodes(summaryNodes);
+    public ArrayList<TrajGraphNode> deliverPacket(PacketRequest pktRequest){
+        // the following one is giving many overlapping nodes (added during enqueue)
+        //ArrayList<Node> summaryNodes = retrieveSummaryNodes(pktRequest);
+        //ArrayList<Trajectory> reducedTrajs = retrieveTrajsFromSummaryNodes(summaryNodes);
+        ArrayList<Trajectory> reducedTrajs = new ArrayList<>();
+        TrajGraph trajGraph = constructTrajGraph(reducedTrajs);
+        ArrayList<TrajGraphNode> bestDeliveres = traverseToDeliver(trajGraph, pktRequest);
+        return bestDeliveres;
+    }
+    
+    public ArrayList<TrajGraphNode> deliverPacketOriginal(PacketRequest pktRequest){
+        // the following ones is giving a bit fewer overlapping nodes (added during dequeue)
+        //ArrayList<Node> summaryNodes = retrieveSummaryNodesOriginal(pktRequest);
+        //ArrayList<Trajectory> reducedTrajs = retrieveTrajsFromSummaryNodes(summaryNodes);
+        ArrayList<Trajectory> reducedTrajs = new ArrayList<>();
+        TrajGraph trajGraph = constructTrajGraph(reducedTrajs);
+        ArrayList<TrajGraphNode> bestDeliveres = traverseToDeliver(trajGraph, pktRequest);
+        return bestDeliveres;
+    }
+    
+    public ArrayList<TrajGraphNode> deliverPacketModified(PacketRequest pktRequest){
+        // the following ones is giving a the fewest overlapping nodes (backtracked from overlapping nodes)
+        ArrayList<Node> summaryNodes = retrieveSummaryNodesModified(pktRequest);
+        ArrayList<Trajectory> reducedTrajs = retrieveTrajsFromSummaryNodes(summaryNodes);
+        TrajGraph trajGraph = constructTrajGraph(reducedTrajs);
+        //ArrayList<Trajectory> allTrajs = trajStorage.getTrajDataAsList();
+        //TrajGraph trajGraph = constructTrajGraph(allTrajs); // correct later with reducedTrajs
+        ArrayList<TrajGraphNode> bestDeliveres = traverseToDeliver(trajGraph, pktRequest);
         return bestDeliveres;
     }
     
@@ -698,12 +954,78 @@ public class ServiceQueryProcessor {
         }
         return contactInfo;
     }
+
+}
+
+class NodeState implements Comparable<NodeState> {
+    private NodeState parentState;
+    private TrajGraphNode trajGraphNode;
+    private double cost;
+
+    public NodeState(TrajGraphNode trajGraphNode, double cost, NodeState parentState) {
+        this.trajGraphNode = trajGraphNode;
+        this.cost = cost;
+        this.parentState = parentState;
+    }
+    
+    public TrajGraphNode getTrajGraphNode() {
+        return trajGraphNode;
+    }
+
+    public double getCost() {
+        return cost;
+    }
+
+    public NodeState getParentState() {
+        return parentState;
+    }
+        
+    @Override
+    public int compareTo(NodeState o) {
+        if (cost < o.cost) return -1;
+        if (cost > o.cost) return 1;
+        return 0;
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 79 * hash + Objects.hashCode(this.parentState);
+        hash = 79 * hash + Objects.hashCode(this.trajGraphNode);
+        hash = 79 * hash + (int) (Double.doubleToLongBits(this.cost) ^ (Double.doubleToLongBits(this.cost) >>> 32));
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final NodeState other = (NodeState) obj;
+        if (Double.doubleToLongBits(this.cost) != Double.doubleToLongBits(other.cost)) {
+            return false;
+        }
+        if (!Objects.equals(this.parentState, other.parentState)) {
+            return false;
+        }
+        if (!Objects.equals(this.trajGraphNode, other.trajGraphNode)) {
+            return false;
+        }
+        return true;
+    }
+    
 }
 
 class OverlappingNodes{
-    Node node;
-    HashSet<Node> from;
-    HashSet<Node> to;
+    private Node node;
+    private HashSet<Node> from;
+    private HashSet<Node> to;
 
     public OverlappingNodes() {
         from = new HashSet<>();
@@ -735,8 +1057,8 @@ class OverlappingNodes{
 }
 
 class Pair implements Comparable<Pair>{
-    Integer key;
-    Long value;
+    private Integer key;
+    private Long value;
 
     public Pair(Integer key, Long value) {
         this.key = key;
