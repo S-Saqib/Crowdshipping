@@ -23,7 +23,9 @@ import io.real.InputParser;
 
 import io.real.SimpleParser;
 import io.real.TrajProcessor;
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -250,11 +252,30 @@ public class CrowdShipping {
         double pktReqMinDisThreshold = clusterRangeInMeters*5;
         PacketDeliveryQuery packetDeliveryQuery = new PacketDeliveryQuery(trajProcessor.getStoppageMap(), trajProcessor.getNormalizedStoppageMap(),
                                                                         distanceConverter, pktReqMinDisThreshold, proximityUnit);
+        String pktSrcDestFilePath = "E:\\Education\\Academic\\BUET\\Educational\\MSc_BUET\\Thesis\\Experiments_Insights\\Src_Dest_Successful_Delivery.txt";
+        BufferedReader br = null;
+        String line = new String();
+        br = new BufferedReader(new FileReader(pktSrcDestFilePath));
+        br.readLine();
+        
+        System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tCost (file)\tisDelivered\tCost (hop)\tCost(dis)\tA* Cost(dis)");
+        /*
         for (int i=0; i<100; i++){
             packetDeliveryQuery.generatePktDeliveryReq();
+        */
+        ///*
+        while ((line = br.readLine()) != null) {
+            String[] data = line.split("\t");
+            int srcId = Integer.parseInt(data[0]);
+            int destId = Integer.parseInt(data[1]);
+            double hopCountCost = Double.parseDouble(data[2]);
+            packetDeliveryQuery.generatePktDeliveryReq(srcId, destId);
+        //*/
+            
             PacketRequest pktReq = packetDeliveryQuery.getPacketRequest();
-            System.out.println("\nGenerated Packet Request:\n" + packetDeliveryQuery);
-
+            //System.out.println("\nGenerated Packet Request:\n" + packetDeliveryQuery);
+            System.out.print("\n" + packetDeliveryQuery.getPacketRequest().getSrcId() + "\t" + packetDeliveryQuery.getPacketRequest().getDestId()
+                            + "\t" + packetDeliveryQuery.getDistance() + "\t" + hopCountCost + "\t");
             //facilityGraph = quadTrajTree.makeUnionSet(facilityGraph);
             //quadTrajTree.draw();
 
@@ -276,8 +297,14 @@ public class CrowdShipping {
                 }
             }
             */
-            boolean validSolution = TestServiceQuery.run(trajStorage, quadTrajTree, pktReq, latProximity, lonProximity, temporalProximity);
+            boolean validSolution = TestServiceQuery.run(trajStorage, quadTrajTree, pktReq, latProximity, lonProximity, temporalProximity,
+                                                        distanceConverter, trajProcessor, packetDeliveryQuery.getDistanceUnit());
+            /*
             if (!validSolution) i--;
+            else{
+                
+            }
+            */
             //System.exit(0);
         }
         

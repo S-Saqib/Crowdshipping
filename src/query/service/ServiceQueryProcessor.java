@@ -18,6 +18,7 @@ import ds.trajectory.TrajPointComparator;
 import ds.trajectory.Trajectory;
 import ds.trajgraph.TrajGraph;
 import ds.trajgraph.TrajGraphNode;
+import io.real.TrajProcessor;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -39,14 +40,21 @@ public class ServiceQueryProcessor {
     private double temporalDisThreshold;
     private TrajStorage trajStorage;
     private TrajGraph trajGraph;
+    private DistanceConverter distanceConverter;
+    private TrajProcessor trajProcessor;
+    String distanceUnit;
 
-    public ServiceQueryProcessor(TrajStorage trajStorage, TQIndex quadTrajTree, double latDisThreshold, double lonDisThreshold, long temporalDisThreshold) {
+    public ServiceQueryProcessor(TrajStorage trajStorage, TQIndex quadTrajTree, double latDisThreshold, double lonDisThreshold,
+                                long temporalDisThreshold, DistanceConverter distanceConverter, TrajProcessor trajProcessor, String distanceUnit) {
         this.quadTrajTree = quadTrajTree;
         this.latDisThreshold = latDisThreshold;
         this.lonDisThreshold = lonDisThreshold;
         this.temporalDisThreshold = temporalDisThreshold;
         this.trajStorage = trajStorage;
         this.trajGraph = trajGraph;
+        this.distanceConverter = distanceConverter;
+        this.trajProcessor = trajProcessor;
+        this.distanceUnit = distanceUnit;
     }
     
     public ServiceQueryProcessor(TQIndex quadTrajTree) {
@@ -517,7 +525,7 @@ public class ServiceQueryProcessor {
                 }
             }
         }
-        System.out.println("Retrieved trajectories = " + retrievedTrajs.size());
+        //System.out.println("Retrieved trajectories = " + retrievedTrajs.size());
         
         return new ArrayList<>(retrievedTrajs);
     }
@@ -647,22 +655,25 @@ public class ServiceQueryProcessor {
         HashMap <TrajGraphNode, NodeState> enqueuedState = new HashMap<>();
         // construct TrajGraphNodes with stopId, trajId (to be obtained from stopToTraj HashMap)
         // enqueue all those nodes (temporal and other processing based pruning) to be done later
-        System.out.println("src stop id = " + srcStopId + ", dest stop id = " + destStopId);
+        //System.out.println("src stop id = " + srcStopId + ", dest stop id = " + destStopId);
         HashSet <String> stopTrajIds = trajGraph.getStopToTrajIds(srcStopId);
         if (stopTrajIds == null){
-            System.out.println("No trajs from stop id " + srcStopId);
+            //System.out.println("No trajs from stop id " + srcStopId);
             stopTrajIds = new HashSet<>();
         }
         //System.out.println("# of traj from src stop id = " + stopTrajIds.size());
         for (String trajId : stopTrajIds){
             TrajGraphNode srcNode = new TrajGraphNode(srcStopId, trajId);
-            double cost = 0;
+            double gCost = 0;
+            //double hCost = computeHeuristicCost(srcStopId, destStopId, distanceUnit);
+            double hCost = 0;
+            double cost = gCost + hCost;
             // cost of a src state is 0 and parent state of it is null
             if (enqueuedState.containsKey(srcNode) && cost >= enqueuedState.get(srcNode).getCost()){
                 // do nothing since a lower cost state for this node is already enqueued
             }
             else{
-                NodeState srcState = new NodeState(srcNode, cost, null);
+                NodeState srcState = new NodeState(srcNode, gCost, hCost, null);
                 if (enqueuedState.containsKey(srcNode)){
                     NodeState oldState = enqueuedState.get(srcNode);
                     NodeState oldParentState = oldState.getParentState();
@@ -694,12 +705,14 @@ public class ServiceQueryProcessor {
             for (TrajGraphNode node : neighbors){
                 //System.out.print(node.getStopId() + " , ");
                 if (colorSet.contains(node)) continue;
-                double cost = computeCost(curNodeState, node);    // to be implemented
+                double gCost = computeIncurredCost(curNodeState, node);
+                double hCost = 0;
+                double cost = gCost + hCost;
                 if (enqueuedState.containsKey(node) && cost >= enqueuedState.get(node).getCost()){
                     // do nothing since a lower cost state for this node is already enqueued
                 }
                 else{
-                    NodeState neighborNodeState = new NodeState(node, cost, curNodeState);
+                    NodeState neighborNodeState = new NodeState(node, gCost, hCost, curNodeState);
                     // do we need to remove the previous nodestate with higher cost?
                     // that may be a bit difficult to do, but trying in the following line
                     if (enqueuedState.containsKey(node)){
@@ -741,14 +754,271 @@ public class ServiceQueryProcessor {
                 curNodeState = parentMap.get(curNodeState);
             }
         }
-        System.out.println("Cost = " + cost);
+        if (bestDeliverers.isEmpty()) System.out.println("0\t" + cost + "\t");
+        else System.out.print("1\t" + cost + "\t");
         
         return bestDeliverers;
     }
     
-    double computeCost(NodeState edgeFromNodeState, TrajGraphNode edgeToNode){
-        double cost = edgeFromNodeState.getCost() + 1;
-        return cost;
+    ArrayList<TrajGraphNode> traverseToDeliver_DistanceCost(TrajGraph trajGraph, PacketRequest pktRequest){
+        
+        int srcStopId = pktRequest.getSrcId();
+        int destStopId = pktRequest.getDestId();
+        PriorityQueue<NodeState> explorableNodes = new PriorityQueue<>();
+        HashMap <NodeState, NodeState> parentMap = new HashMap<>();
+        HashSet <TrajGraphNode> colorSet = new HashSet<>();
+        HashMap <TrajGraphNode, NodeState> enqueuedState = new HashMap<>();
+        // construct TrajGraphNodes with stopId, trajId (to be obtained from stopToTraj HashMap)
+        // enqueue all those nodes (temporal and other processing based pruning) to be done later
+        //System.out.println("src stop id = " + srcStopId + ", dest stop id = " + destStopId);
+        HashSet <String> stopTrajIds = trajGraph.getStopToTrajIds(srcStopId);
+        if (stopTrajIds == null){
+            //System.out.println("No trajs from stop id " + srcStopId);
+            stopTrajIds = new HashSet<>();
+        }
+        //System.out.println("# of traj from src stop id = " + stopTrajIds.size());
+        for (String trajId : stopTrajIds){
+            TrajGraphNode srcNode = new TrajGraphNode(srcStopId, trajId);
+            double gCost = 0;
+            //double hCost = computeHeuristicCost(srcStopId, destStopId, distanceUnit);
+            double hCost = 0;
+            double cost = gCost + hCost;
+            // cost of a src state is 0 and parent state of it is null
+            if (enqueuedState.containsKey(srcNode) && cost >= enqueuedState.get(srcNode).getCost()){
+                // do nothing since a lower cost state for this node is already enqueued
+            }
+            else{
+                NodeState srcState = new NodeState(srcNode, gCost, hCost, null);
+                if (enqueuedState.containsKey(srcNode)){
+                    NodeState oldState = enqueuedState.get(srcNode);
+                    NodeState oldParentState = oldState.getParentState();
+                    NodeState newParentState = srcState.getParentState();
+                    TrajGraphNode oldParentNode, newParentNode;
+                    if (oldParentState == null) oldParentNode = new TrajGraphNode(-1, "-1");
+                    else oldParentNode = oldParentState.getTrajGraphNode();
+                    if (newParentState == null) newParentNode = new TrajGraphNode(-1, "-1");
+                    else newParentNode = newParentState.getTrajGraphNode();
+                    System.out.print("Node <" + srcNode.getStopId() + "," + srcNode.getTrajId() + ">, Parent = <");
+                    System.out.print(oldParentNode.getStopId() + "," + oldParentNode.getTrajId() + ">, Cost = " + oldState.getCost() + " removed ");
+                    System.out.println(newParentNode.getStopId() + "," + newParentNode.getTrajId() + ">, Cost = " + srcState.getCost() + " added ");
+                    explorableNodes.remove(oldState);
+                }
+                enqueuedState.put(srcNode, srcState);
+                explorableNodes.add(srcState);
+            }
+        }
+
+        NodeState curNodeState = null;
+        while(!explorableNodes.isEmpty()) {
+            curNodeState = explorableNodes.poll();
+            TrajGraphNode curNode = curNodeState.getTrajGraphNode();
+            parentMap.put(curNodeState, curNodeState.getParentState());
+            colorSet.add(curNode);
+            if (curNode.getStopId() == destStopId) break;
+            ArrayList <TrajGraphNode> neighbors = trajGraph.getNeighbors(curNode);
+            //System.out.println("Neighbors of <" + curNode.getStopId() + "," + curNode.getTrajId() + "> : Size = " + neighbors.size());
+            for (TrajGraphNode node : neighbors){
+                //System.out.print(node.getStopId() + " , ");
+                if (colorSet.contains(node)) continue;
+                double gCost = computeIncurredCostByDistance(curNodeState, node, distanceUnit); 
+                double hCost = 0;
+                double cost = gCost + hCost;
+                if (enqueuedState.containsKey(node) && cost >= enqueuedState.get(node).getCost()){
+                    // do nothing since a lower cost state for this node is already enqueued
+                }
+                else{
+                    NodeState neighborNodeState = new NodeState(node, gCost, hCost, curNodeState);
+                    // do we need to remove the previous nodestate with higher cost?
+                    // that may be a bit difficult to do, but trying in the following line
+                    if (enqueuedState.containsKey(node)){
+                        NodeState oldState = enqueuedState.get(node);
+                        NodeState oldParentState = oldState.getParentState();
+                        NodeState newParentState = neighborNodeState.getParentState();
+                        TrajGraphNode oldParentNode, newParentNode;
+                        if (oldParentState == null) oldParentNode = new TrajGraphNode(-1, "-1");
+                        else oldParentNode = oldParentState.getTrajGraphNode();
+                        if (newParentState == null) newParentNode = new TrajGraphNode(-1, "-1");
+                        else newParentNode = newParentState.getTrajGraphNode();
+                        //System.out.print("Node <" + node.getStopId() + "," + node.getTrajId() + ">, Parent = <");
+                        //System.out.print(oldParentNode.getStopId() + "," + oldParentNode.getTrajId() + ">, Cost = " + oldState.getCost() + " removed and Parent = <");
+                        //System.out.println(newParentNode.getStopId() + "," + newParentNode.getTrajId() + ">, Cost = " + neighborNodeState.getCost() + " added ");
+                        explorableNodes.remove(oldState);
+                    }
+                    enqueuedState.put(node, neighborNodeState);
+                    explorableNodes.add(neighborNodeState);
+                    //System.out.println("Enqueued : " + neighborNodeState.getTrajGraphNode().getStopId());
+                }
+            }
+            //System.out.println("");
+        }
+        
+        ArrayList<TrajGraphNode> bestDeliverers = new ArrayList<>();
+        
+        double cost;
+        if (curNodeState == null || curNodeState.getTrajGraphNode().getStopId() != destStopId){
+            cost = Double.MAX_VALUE;
+        }
+        else{
+            cost = curNodeState.getCost();
+            while(curNodeState != null){
+                if (!parentMap.containsKey(curNodeState)){
+                    System.out.println("Alert : Unreachable i.e. cannot be delivered");
+                    break;
+                }
+                bestDeliverers.add(0, curNodeState.getTrajGraphNode());
+                curNodeState = parentMap.get(curNodeState);
+            }
+        }
+        if (bestDeliverers.isEmpty()) System.out.println(cost + "\t");
+        else System.out.print(cost + "\t");
+        
+        return bestDeliverers;
+    }
+    
+    ArrayList<TrajGraphNode> traverseToDeliver_AStar(TrajGraph trajGraph, PacketRequest pktRequest){
+        
+        int srcStopId = pktRequest.getSrcId();
+        int destStopId = pktRequest.getDestId();
+        PriorityQueue<NodeState> explorableNodes = new PriorityQueue<>();
+        HashMap <NodeState, NodeState> parentMap = new HashMap<>();
+        HashSet <TrajGraphNode> colorSet = new HashSet<>();
+        HashMap <TrajGraphNode, NodeState> enqueuedState = new HashMap<>();
+        // construct TrajGraphNodes with stopId, trajId (to be obtained from stopToTraj HashMap)
+        // enqueue all those nodes (temporal and other processing based pruning) to be done later
+        //System.out.println("src stop id = " + srcStopId + ", dest stop id = " + destStopId);
+        HashSet <String> stopTrajIds = trajGraph.getStopToTrajIds(srcStopId);
+        if (stopTrajIds == null){
+            //System.out.println("No trajs from stop id " + srcStopId);
+            stopTrajIds = new HashSet<>();
+        }
+        //System.out.println("# of traj from src stop id = " + stopTrajIds.size());
+        for (String trajId : stopTrajIds){
+            TrajGraphNode srcNode = new TrajGraphNode(srcStopId, trajId);
+            double gCost = 0;
+            double hCost = computeHeuristicCost(srcStopId, destStopId, distanceUnit);
+            //double hCost = 0;
+            double cost = gCost + hCost;
+            // cost of a src state is 0 and parent state of it is null
+            if (enqueuedState.containsKey(srcNode) && cost >= enqueuedState.get(srcNode).getCost()){
+                // do nothing since a lower cost state for this node is already enqueued
+            }
+            else{
+                NodeState srcState = new NodeState(srcNode, gCost, hCost, null);
+                if (enqueuedState.containsKey(srcNode)){
+                    NodeState oldState = enqueuedState.get(srcNode);
+                    NodeState oldParentState = oldState.getParentState();
+                    NodeState newParentState = srcState.getParentState();
+                    TrajGraphNode oldParentNode, newParentNode;
+                    if (oldParentState == null) oldParentNode = new TrajGraphNode(-1, "-1");
+                    else oldParentNode = oldParentState.getTrajGraphNode();
+                    if (newParentState == null) newParentNode = new TrajGraphNode(-1, "-1");
+                    else newParentNode = newParentState.getTrajGraphNode();
+                    System.out.print("Node <" + srcNode.getStopId() + "," + srcNode.getTrajId() + ">, Parent = <");
+                    System.out.print(oldParentNode.getStopId() + "," + oldParentNode.getTrajId() + ">, Cost = " + oldState.getCost() + " removed ");
+                    System.out.println(newParentNode.getStopId() + "," + newParentNode.getTrajId() + ">, Cost = " + srcState.getCost() + " added ");
+                    explorableNodes.remove(oldState);
+                }
+                enqueuedState.put(srcNode, srcState);
+                explorableNodes.add(srcState);
+            }
+        }
+
+        NodeState curNodeState = null;
+        while(!explorableNodes.isEmpty()) {
+            curNodeState = explorableNodes.poll();
+            TrajGraphNode curNode = curNodeState.getTrajGraphNode();
+            parentMap.put(curNodeState, curNodeState.getParentState());
+            colorSet.add(curNode);
+            if (curNode.getStopId() == destStopId) break;
+            ArrayList <TrajGraphNode> neighbors = trajGraph.getNeighbors(curNode);
+            //System.out.println("Neighbors of <" + curNode.getStopId() + "," + curNode.getTrajId() + "> : Size = " + neighbors.size());
+            for (TrajGraphNode node : neighbors){
+                //System.out.print(node.getStopId() + " , ");
+                if (colorSet.contains(node)) continue;
+                double gCost = computeIncurredCostByDistance(curNodeState, node, distanceUnit);
+                double hCost = computeHeuristicCost(node.getStopId(), destStopId, distanceUnit);
+                double cost = gCost + hCost;
+                if (enqueuedState.containsKey(node) && cost >= enqueuedState.get(node).getCost()){
+                    // do nothing since a lower cost state for this node is already enqueued
+                }
+                else{
+                    NodeState neighborNodeState = new NodeState(node, gCost, hCost, curNodeState);
+                    // do we need to remove the previous nodestate with higher cost?
+                    // that may be a bit difficult to do, but trying in the following line
+                    if (enqueuedState.containsKey(node)){
+                        NodeState oldState = enqueuedState.get(node);
+                        NodeState oldParentState = oldState.getParentState();
+                        NodeState newParentState = neighborNodeState.getParentState();
+                        TrajGraphNode oldParentNode, newParentNode;
+                        if (oldParentState == null) oldParentNode = new TrajGraphNode(-1, "-1");
+                        else oldParentNode = oldParentState.getTrajGraphNode();
+                        if (newParentState == null) newParentNode = new TrajGraphNode(-1, "-1");
+                        else newParentNode = newParentState.getTrajGraphNode();
+                        //System.out.print("Node <" + node.getStopId() + "," + node.getTrajId() + ">, Parent = <");
+                        //System.out.print(oldParentNode.getStopId() + "," + oldParentNode.getTrajId() + ">, Cost = " + oldState.getCost() + " removed and Parent = <");
+                        //System.out.println(newParentNode.getStopId() + "," + newParentNode.getTrajId() + ">, Cost = " + neighborNodeState.getCost() + " added ");
+                        explorableNodes.remove(oldState);
+                    }
+                    enqueuedState.put(node, neighborNodeState);
+                    explorableNodes.add(neighborNodeState);
+                    //System.out.println("Enqueued : " + neighborNodeState.getTrajGraphNode().getStopId());
+                }
+            }
+            //System.out.println("");
+        }
+        
+        ArrayList<TrajGraphNode> bestDeliverers = new ArrayList<>();
+        
+        double cost;
+        if (curNodeState == null || curNodeState.getTrajGraphNode().getStopId() != destStopId){
+            cost = Double.MAX_VALUE;
+        }
+        else{
+            cost = curNodeState.getCost();
+            while(curNodeState != null){
+                if (!parentMap.containsKey(curNodeState)){
+                    System.out.println("Alert : Unreachable i.e. cannot be delivered");
+                    break;
+                }
+                bestDeliverers.add(0, curNodeState.getTrajGraphNode());
+                curNodeState = parentMap.get(curNodeState);
+            }
+        }
+        if (bestDeliverers.isEmpty()) System.out.println(cost + "\t");
+        else System.out.print(cost + "\t");
+        
+        return bestDeliverers;
+    }
+    
+    double computeIncurredCost(NodeState edgeFromNodeState, TrajGraphNode edgeToNode){
+        double gCost = edgeFromNodeState.getGCost() + 1;
+        return gCost;
+    }
+    
+    double computeIncurredCostByDistance(NodeState edgeFromNodeState, TrajGraphNode edgeToNode, String distanceUnit){
+        double gCost = edgeFromNodeState.getGCost();
+        int fromStop = edgeFromNodeState.getTrajGraphNode().getStopId();
+        int toStop = edgeToNode.getStopId();
+        double additionalCost = 0;
+        double detourOverheadCost = 0;
+        if (fromStop == toStop){
+            detourOverheadCost += 0;    // ignoring detour overhead in case of handover at the same node
+        }
+        double lat1 = trajProcessor.getStoppageMap().get(fromStop).getKey();
+        double lon1 = trajProcessor.getStoppageMap().get(fromStop).getValue();
+        double lat2 = trajProcessor.getStoppageMap().get(toStop).getKey();
+        double lon2 = trajProcessor.getStoppageMap().get(toStop).getValue();
+        additionalCost = distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit);
+        gCost = gCost + additionalCost + detourOverheadCost;
+        return gCost;
+    }
+    
+    private double computeHeuristicCost(int fromStop, int toStop, String distanceUnit) {
+        double lat1 = trajProcessor.getStoppageMap().get(fromStop).getKey();
+        double lon1 = trajProcessor.getStoppageMap().get(fromStop).getValue();
+        double lat2 = trajProcessor.getStoppageMap().get(toStop).getKey();
+        double lon2 = trajProcessor.getStoppageMap().get(toStop).getValue();
+        return distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit); // hCost
     }
     // find the best deliverers only for now
     public ArrayList<TrajGraphNode> deliverPacket(PacketRequest pktRequest){
@@ -779,6 +1049,8 @@ public class ServiceQueryProcessor {
         //ArrayList<Trajectory> allTrajs = trajStorage.getTrajDataAsList();
         //TrajGraph trajGraph = constructTrajGraph(allTrajs); // correct later with reducedTrajs
         ArrayList<TrajGraphNode> bestDeliveres = traverseToDeliver(trajGraph, pktRequest);
+        traverseToDeliver_DistanceCost(trajGraph, pktRequest);
+        traverseToDeliver_AStar(trajGraph, pktRequest);
         return bestDeliveres;
     }
     
@@ -960,20 +1232,29 @@ public class ServiceQueryProcessor {
 class NodeState implements Comparable<NodeState> {
     private NodeState parentState;
     private TrajGraphNode trajGraphNode;
-    private double cost;
+    private double gCost, hCost;
 
-    public NodeState(TrajGraphNode trajGraphNode, double cost, NodeState parentState) {
+    public NodeState(TrajGraphNode trajGraphNode, double gCost, double hCost, NodeState parentState) {
         this.trajGraphNode = trajGraphNode;
-        this.cost = cost;
+        this.gCost = gCost;
+        this.hCost = hCost;
         this.parentState = parentState;
     }
     
     public TrajGraphNode getTrajGraphNode() {
         return trajGraphNode;
     }
-
+    
+    public double getGCost(){
+        return gCost;
+    }
+    
+    public double getHCost(){
+        return hCost;
+    }
+    
     public double getCost() {
-        return cost;
+        return gCost + hCost;
     }
 
     public NodeState getParentState() {
@@ -982,17 +1263,20 @@ class NodeState implements Comparable<NodeState> {
         
     @Override
     public int compareTo(NodeState o) {
-        if (cost < o.cost) return -1;
-        if (cost > o.cost) return 1;
+        double cost = gCost + hCost;
+        double otherNodeStateCost = o.gCost + o.hCost;
+        if (cost < otherNodeStateCost) return -1;
+        if (cost > otherNodeStateCost) return 1;
         return 0;
     }
 
     @Override
     public int hashCode() {
-        int hash = 7;
-        hash = 79 * hash + Objects.hashCode(this.parentState);
-        hash = 79 * hash + Objects.hashCode(this.trajGraphNode);
-        hash = 79 * hash + (int) (Double.doubleToLongBits(this.cost) ^ (Double.doubleToLongBits(this.cost) >>> 32));
+        int hash = 3;
+        hash = 97 * hash + Objects.hashCode(this.parentState);
+        hash = 97 * hash + Objects.hashCode(this.trajGraphNode);
+        hash = 97 * hash + (int) (Double.doubleToLongBits(this.gCost) ^ (Double.doubleToLongBits(this.gCost) >>> 32));
+        hash = 97 * hash + (int) (Double.doubleToLongBits(this.hCost) ^ (Double.doubleToLongBits(this.hCost) >>> 32));
         return hash;
     }
 
@@ -1008,7 +1292,10 @@ class NodeState implements Comparable<NodeState> {
             return false;
         }
         final NodeState other = (NodeState) obj;
-        if (Double.doubleToLongBits(this.cost) != Double.doubleToLongBits(other.cost)) {
+        if (Double.doubleToLongBits(this.gCost) != Double.doubleToLongBits(other.gCost)) {
+            return false;
+        }
+        if (Double.doubleToLongBits(this.hCost) != Double.doubleToLongBits(other.hCost)) {
             return false;
         }
         if (!Objects.equals(this.parentState, other.parentState)) {
@@ -1019,7 +1306,6 @@ class NodeState implements Comparable<NodeState> {
         }
         return true;
     }
-    
 }
 
 class OverlappingNodes{

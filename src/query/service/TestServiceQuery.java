@@ -7,20 +7,21 @@ import ds.trajectory.TrajPoint;
 import ds.trajectory.Trajectory;
 import ds.trajgraph.TrajGraph;
 import ds.trajgraph.TrajGraphNode;
+import io.real.TrajProcessor;
 import java.util.HashMap;
 import java.util.TreeSet;
 import query.PacketRequest;
 
 public class TestServiceQuery {
 
-    public static boolean run(TrajStorage trajStorage, TQIndex quadTrajTree, PacketRequest pktRequest,
-                            double latDisThreshold, double lonDisThreshold, long temporalDisThreshold) {
+    public static boolean run(TrajStorage trajStorage, TQIndex quadTrajTree, PacketRequest pktRequest, double latDisThreshold, double lonDisThreshold,
+                                long temporalDisThreshold, DistanceConverter distanceConverter, TrajProcessor trajProcessor, String distanceUnit) {
 
         //int numberOfRuns = 10;
         //double naiveTime = 0, zOrderTime = 0;
         //for (int i = 0; i < numberOfRuns; i++) {
-            ServiceQueryProcessor processQuery = new ServiceQueryProcessor(trajStorage, quadTrajTree,
-                                                                latDisThreshold, lonDisThreshold, temporalDisThreshold);
+            ServiceQueryProcessor processQuery = new ServiceQueryProcessor(trajStorage, quadTrajTree, latDisThreshold, lonDisThreshold,
+                                                                            temporalDisThreshold, distanceConverter, trajProcessor, distanceUnit);
             //System.out.println("--Service Query--");
             //System.out.println("Optimal:");
             //double from = System.nanoTime();
@@ -41,11 +42,13 @@ public class TestServiceQuery {
             */
             //System.out.println("\n------------------------------------------------------");
             ArrayList <TrajGraphNode> bestDeliverersModified = processQuery.deliverPacketModified(pktRequest);
+            /*
             System.out.println("Best deliverers (modified) size = " + bestDeliverersModified.size());
             for (TrajGraphNode deliverer : bestDeliverersModified){
                 System.out.print("<" + deliverer.getStopId() + ", " + deliverer.getTrajId() + "> - ");
             }
             System.out.println("\n------------------------------------------------------");
+            */
             
             // HashMap<String, TreeSet<TrajPoint>> infectedContacts = new HashMap<String, TreeSet<TrajPoint>>();
             // infectedContacts = processQuery.evaluateService(quadTrajTree.getQuadTree().getRootNode(), facilityGraph, infectedContacts);

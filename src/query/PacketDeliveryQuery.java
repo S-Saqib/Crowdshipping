@@ -48,10 +48,10 @@ public class PacketDeliveryQuery {
         Random random = new Random();
         while(!isValid){
             for (HashMap.Entry<Integer, Pair<Double, Double>> fromEntry : normalizedStoppageMap.entrySet()){
-                if (random.nextDouble() > 0.8){
+                if (random.nextDouble() > 0.95){
                     from = fromEntry.getKey();
                     for (HashMap.Entry<Integer, Pair<Double, Double>> toEntry : normalizedStoppageMap.entrySet()){
-                        if (random.nextDouble() > 0.8){
+                        if (random.nextDouble() > 0.95){
                             to = toEntry.getKey();
                             if (from == to) continue;
 
@@ -74,6 +74,10 @@ public class PacketDeliveryQuery {
         //from = 4;
         //to = 12;
         //
+        generatePktDeliveryReq(from, to);
+    }
+    
+    public void generatePktDeliveryReq(int from, int to){
         pktReq.setSrcId(from);
         pktReq.setDestId(to);
         pktReq.setSrcLat(stoppageMap.get(from).getKey());
@@ -85,9 +89,22 @@ public class PacketDeliveryQuery {
         pktReq.setNormDestLat(normalizedStoppageMap.get(to).getKey());
         pktReq.setNormDestLon(normalizedStoppageMap.get(to).getValue());
     }
-
+    
     public PacketRequest getPacketRequest() {
         return pktReq;
+    }
+    
+    public double getDistance(){
+        double lat1 = pktReq.getSrcLat();
+        double lon1 = pktReq.getSrcLon();
+        double lat2 = pktReq.getDestLat();
+        double lon2 = pktReq.getDestLon();
+        double dis = distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit);
+        return dis;
+    }
+    
+    public String getDistanceUnit(){
+        return distanceUnit;
     }
 
     @Override
