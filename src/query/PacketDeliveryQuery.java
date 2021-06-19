@@ -5,6 +5,7 @@
  */
 package query;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 import javafx.util.Pair;
@@ -21,6 +22,8 @@ public class PacketDeliveryQuery {
     private DistanceConverter distanceConverter;
     private double minDisThreshold;
     private String distanceUnit;
+    private ArrayList <Integer> srcStops;
+    private ArrayList <Integer> destStops;
     // besides normalization, some stops out of bound are pruned in this hash map
     // so better to generate src, dest id from the normalized map
     PacketRequest pktReq;
@@ -37,6 +40,8 @@ public class PacketDeliveryQuery {
         this.minDisThreshold = minDisThreshold;
         this.distanceUnit = distanceUnit;
         pktReq = new PacketRequest();
+        srcStops = new ArrayList<>();
+        destStops = new ArrayList<>();
     }
     
     public void generatePktDeliveryReq(){
@@ -88,6 +93,35 @@ public class PacketDeliveryQuery {
         pktReq.setNormSrcLon(normalizedStoppageMap.get(from).getValue());
         pktReq.setNormDestLat(normalizedStoppageMap.get(to).getKey());
         pktReq.setNormDestLon(normalizedStoppageMap.get(to).getValue());
+    }
+    
+    public void generatePktDeliveryReq(int id){
+        if (srcStops.isEmpty() && destStops.isEmpty()){
+            pktReq = new PacketRequest();
+        }
+        if (id >= srcStops.size()){
+            pktReq = new PacketRequest();
+        }
+        int from = srcStops.get(id);
+        int to = destStops.get(id);
+        generatePktDeliveryReq(from, to);
+    }
+    
+    public void populateRandomSrcDestIds(int size){
+        resetPktDeliveryReq();
+        ArrayList<Integer> allValidStopIds = new ArrayList<>(normalizedStoppageMap.keySet());
+        Random randomIndexGenerator = new Random();
+        for (int i=0; i<size; i++){
+            int srcIndex = randomIndexGenerator.nextInt(allValidStopIds.size());
+            int destIndex = randomIndexGenerator.nextInt(allValidStopIds.size());
+            srcStops.add(allValidStopIds.get(srcIndex));
+            destStops.add(allValidStopIds.get(destIndex));
+        }
+    }
+    
+    public void resetPktDeliveryReq(){
+        if (!srcStops.isEmpty()) srcStops.clear();
+        if (!destStops.isEmpty()) destStops.clear();
     }
     
     public PacketRequest getPacketRequest() {

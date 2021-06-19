@@ -64,7 +64,7 @@ public class CrowdShipping {
         //trajProcessor.printSummary();
         //trajProcessor.printTrajs(5);
         //trajProcessor.printNormalizedTrajs(5);
-        trajProcessor.printInfo();
+        //trajProcessor.printInfo();
         
         // create an object of TrajStorage to imitate database functionalities
         TrajStorage trajStorage = new TrajStorage(trajProcessor.getTrajIdToNormalizedTrajMap(),trajProcessor.getTrajIdToTrajMap());
@@ -99,15 +99,7 @@ public class CrowdShipping {
             //quadTrajTree.printSummaryIndex();
             quadTrajTree.printSummaryIndexSummary();
             */
-            from = System.nanoTime();
-            quadTrajTree.buildSummaryIndex(1000);
-            System.out.println("Summary index (1000 pt/leaf) construction time = " + (System.nanoTime()-from)/1.0e9 + " sec");
-            //System.exit(0);
-            //quadTrajTree.printSummaryIndex();
-            //quadTrajTree.printRevSummaryIndex();
-            quadTrajTree.printSummaryIndexSummary();
-            System.out.println("Reverse...");
-            quadTrajTree.printRevSummaryIndexSummary();
+            
             /*
             from = System.nanoTime();
             quadTrajTree.buildSummaryIndex(2000);
@@ -137,6 +129,10 @@ public class CrowdShipping {
         
         // the following proximity, distance etc. are calculated in normalized lat, lon space
         double spatialProximity = 50;
+        // need to consider keepers
+        double detourDistanceThreshold = 1000; // in meters
+        spatialProximity = detourDistanceThreshold;
+        ///
         String proximityUnit = "m"; // it can be "m", "km", "mile" and "ft"
         DistanceConverter distanceConverter = new DistanceConverter(trajProcessor.getMaxLon(), trajProcessor.getMaxLat(), trajProcessor.getMinLon(), trajProcessor.getMinLat());
         double latProximity = distanceConverter.getLatProximity(spatialProximity, proximityUnit);
@@ -157,6 +153,17 @@ public class CrowdShipping {
         long temporalProximity = 15; // in minutes, may be anything around 5 to 240 for example
         temporalProximity *= 60;    // in seconds
         
+        
+        from = System.nanoTime();
+        quadTrajTree.buildSummaryIndex(1000, trajProcessor.getNormalizedStoppageMap(), latProximity, lonProximity);
+        System.out.println("Summary index (1000 pt/leaf) construction time = " + (System.nanoTime()-from)/1.0e9 + " sec");
+        //System.exit(0);
+        //quadTrajTree.printSummaryIndex();
+        //quadTrajTree.printRevSummaryIndex();
+        quadTrajTree.printSummaryIndexSummary();
+        System.out.println("Reverse...");
+        quadTrajTree.printRevSummaryIndexSummary();
+
         /*
         // stats of stops
         HashMap<Integer, Integer> distanceWiseStopCount = new HashMap<>();
@@ -244,38 +251,50 @@ public class CrowdShipping {
         }
         System.out.println("# of Trajpoints among stoppages = " + amongStops + ", out of stoppages = " + outOfStops);
         */
-                
-        // need to consider keepers
-        double detourDistranceThreshold = 1000; // in meters
-        ///
         
-        double pktReqMinDisThreshold = clusterRangeInMeters*5;
+        double pktDisByDetourCoeff = 2;
+        double pktReqMinDisThreshold = detourDistanceThreshold*pktDisByDetourCoeff;
         PacketDeliveryQuery packetDeliveryQuery = new PacketDeliveryQuery(trajProcessor.getStoppageMap(), trajProcessor.getNormalizedStoppageMap(),
                                                                         distanceConverter, pktReqMinDisThreshold, proximityUnit);
-        String pktSrcDestFilePath = "E:\\Education\\Academic\\BUET\\Educational\\MSc_BUET\\Thesis\\Experiments_Insights\\Src_Dest_Successful_Delivery.txt";
+        String pktSrcDestFilePath = "E:\\Education\\Academic\\BUET\\Educational\\MSc_BUET\\Thesis\\Experiments_Insights\\Src_Dest_BL_Successful.txt";
         BufferedReader br = null;
         String line = new String();
         br = new BufferedReader(new FileReader(pktSrcDestFilePath));
         br.readLine();
-        
-        System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tCost (file)\tisDelivered\tCost (hop)\tCost(dis)\tA* Cost(dis)");
         /*
-        for (int i=0; i<100; i++){
-            packetDeliveryQuery.generatePktDeliveryReq();
+        System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tCost (file)\tisDelivered\tCost (hop)\tCost (dis)\tA* Cost (dis)\t"
+                        + "isDelivered_joined\tCost_joined (hop)\tCost_joined (dis)\tA* Cost_joined (dis)");
         */
-        ///*
+        
+        System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tisDelivered\tA* Cost (dis)\tA* Time (sec)\tA* Trajs (I/O)\t"
+                        + "isDelivered_joined\tA* Cost_joined (dis)\tA* Time_joined (sec)\tA* Trajs_joined (I/O)\tisDelivered_joined_A*_hop\tA* Cost Hop_joined\t"
+                        + "isDelivered_baseline\tBaseline Cost (dis)\tBaseline Time (sec)\tBaseline Trajs(I/O)\tisDelivered_joined_BL_hop\tBL_Cost_Hop_joined\t");
+        
+        int noOfPktsForDelivery = 100;
+        // generates some random src, dest ids and puts them in lists
+        packetDeliveryQuery.populateRandomSrcDestIds(noOfPktsForDelivery);
+        
+        for (int i=0; i<noOfPktsForDelivery; i++){
+            // checks each stop probabilistically
+            // packetDeliveryQuery.generatePktDeliveryReq();
+            
+            // picks from the lists of random src, dest stop ids
+            packetDeliveryQuery.generatePktDeliveryReq(i);
+        
+        /*
         while ((line = br.readLine()) != null) {
             String[] data = line.split("\t");
             int srcId = Integer.parseInt(data[0]);
             int destId = Integer.parseInt(data[1]);
             double hopCountCost = Double.parseDouble(data[2]);
             packetDeliveryQuery.generatePktDeliveryReq(srcId, destId);
-        //*/
+        */
             
             PacketRequest pktReq = packetDeliveryQuery.getPacketRequest();
             //System.out.println("\nGenerated Packet Request:\n" + packetDeliveryQuery);
+            
             System.out.print("\n" + packetDeliveryQuery.getPacketRequest().getSrcId() + "\t" + packetDeliveryQuery.getPacketRequest().getDestId()
-                            + "\t" + packetDeliveryQuery.getDistance() + "\t" + hopCountCost + "\t");
+                            + "\t" + packetDeliveryQuery.getDistance() + "\t" /*+ hopCountCost + "\t"*/);
             //facilityGraph = quadTrajTree.makeUnionSet(facilityGraph);
             //quadTrajTree.draw();
 
@@ -297,8 +316,9 @@ public class CrowdShipping {
                 }
             }
             */
+            // latProximity and lonProximity are used only in summary node retrieval (or range query in baseline)
             boolean validSolution = TestServiceQuery.run(trajStorage, quadTrajTree, pktReq, latProximity, lonProximity, temporalProximity,
-                                                        distanceConverter, trajProcessor, packetDeliveryQuery.getDistanceUnit());
+                                                        distanceConverter, trajProcessor, packetDeliveryQuery.getDistanceUnit(), detourDistanceThreshold);
             /*
             if (!validSolution) i--;
             else{
@@ -307,6 +327,7 @@ public class CrowdShipping {
             */
             //System.exit(0);
         }
+        System.out.println("");
         
         //TestServiceQuery.run(quadTrajTree, facilityGraph);
         //TestBestKQuery.run(quadTrajTree, facilityGraph);

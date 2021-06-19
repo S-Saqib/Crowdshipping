@@ -20,6 +20,7 @@ import ds.trajgraph.TrajGraph;
 import ds.trajgraph.TrajGraphNode;
 import io.real.TrajProcessor;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,10 +43,13 @@ public class ServiceQueryProcessor {
     private TrajGraph trajGraph;
     private DistanceConverter distanceConverter;
     private TrajProcessor trajProcessor;
-    String distanceUnit;
+    private String distanceUnit;
+    private double detourDistanceThreshold;
+    private double deliveryCost;
+    private static int overlapThreshold = 10;
 
-    public ServiceQueryProcessor(TrajStorage trajStorage, TQIndex quadTrajTree, double latDisThreshold, double lonDisThreshold,
-                                long temporalDisThreshold, DistanceConverter distanceConverter, TrajProcessor trajProcessor, String distanceUnit) {
+    public ServiceQueryProcessor(TrajStorage trajStorage, TQIndex quadTrajTree, double latDisThreshold, double lonDisThreshold, long temporalDisThreshold,
+                                DistanceConverter distanceConverter, TrajProcessor trajProcessor, String distanceUnit, double detourDistanceThrehold) {
         this.quadTrajTree = quadTrajTree;
         this.latDisThreshold = latDisThreshold;
         this.lonDisThreshold = lonDisThreshold;
@@ -55,6 +59,8 @@ public class ServiceQueryProcessor {
         this.distanceConverter = distanceConverter;
         this.trajProcessor = trajProcessor;
         this.distanceUnit = distanceUnit;
+        this.detourDistanceThreshold = detourDistanceThrehold;
+        this.deliveryCost = Double.MAX_VALUE;
     }
     
     public ServiceQueryProcessor(TQIndex quadTrajTree) {
@@ -91,7 +97,6 @@ public class ServiceQueryProcessor {
     // retrieve summary nodes considering overlap
     
     public ArrayList<Node> retrieveSummaryNodes(PacketRequest pktRequest){
-        int overlapThreshold = 5;
         SummaryQuadTree sqTree = quadTrajTree.getSqTree();
         
         HashMap<Node, Integer> summaryNodes = new HashMap<>();
@@ -227,7 +232,6 @@ public class ServiceQueryProcessor {
     }
     
     public ArrayList<Node> retrieveSummaryNodesOriginal(PacketRequest pktRequest){
-        int overlapThreshold = 5;
         SummaryQuadTree sqTree = quadTrajTree.getSqTree();
         
         PriorityQueue<Pair> potentialOutNodes = new PriorityQueue<>();
@@ -328,6 +332,14 @@ public class ServiceQueryProcessor {
         return new ArrayList<Node>(summaryNodes);
     }
     
+    public int calculateDirectionalKey(Node node, double lat, double lon){
+        double centerX = node.getX()+node.getW()/2;
+        double centerY = node.getY()+node.getH()/2;
+        double distanceKey = distanceConverter.absDistanceFromNormalizedValues(lat, centerX, lon, centerY, distanceUnit);
+        distanceKey *= -1;  // negated because since lower distance should get higher priority
+        return (int)(distanceKey);
+    }
+    
     public int calculateKey(HashMap<Long, Integer> neighbors){
         return calculateKeyFromTrajCount(neighbors);
         // return calculateKeyFromNeighborCount(neighbors);
@@ -349,7 +361,6 @@ public class ServiceQueryProcessor {
     }
     
     public ArrayList<Node> retrieveSummaryNodesModified(PacketRequest pktRequest){
-        int overlapThreshold = 5;
         SummaryQuadTree sqTree = quadTrajTree.getSqTree();
         
         PriorityQueue<Pair> potentialOutNodes = new PriorityQueue<>();
@@ -384,7 +395,14 @@ public class ServiceQueryProcessor {
         // we know every node is distinct in this array, no need to check color
         for (Node node : outgoingNodes){
             // add outgoing nodes to potential outnodes with appropriate key
-            potentialOutNodes.add(new Pair(calculateKey(sqTree.getSummaryGraph().get(node.getZCode())), node.getZCode()));
+            int key = calculateKey(sqTree.getSummaryGraph().get(node.getZCode()));
+            int dirKey = calculateDirectionalKey(node, pktRequest.getNormDestLat(), pktRequest.getNormDestLon());
+            int compoundKey = (int)Math.ceil(key/10000.0)*dirKey;
+            // if (compoundKey > -1) System.out.println("Alarm!! Alarm!! Compound key = " + compoundKey);
+            //potentialOutNodes.add(new Pair(key, node.getZCode()));
+            //potentialOutNodes.add(new Pair(dirKey, node.getZCode()));
+            potentialOutNodes.add(new Pair(compoundKey, node.getZCode()));
+            
             if (!nodeReachabilityMap.containsKey(node)){
                 nodeReachabilityMap.put(node, new OverlappingNodes(node));
             }
@@ -392,7 +410,13 @@ public class ServiceQueryProcessor {
         
         for (Node node : incomingNodes){
             // add incoming nodes to potential innodes with appropriate key
-            potentialInNodes.add(new Pair(calculateKey(sqTree.getReverseSummaryGraph().get(node.getZCode())), node.getZCode()));
+            int key = calculateKey(sqTree.getReverseSummaryGraph().get(node.getZCode()));
+            int dirKey = calculateDirectionalKey(node, pktRequest.getNormSrcLat(), pktRequest.getNormSrcLon());
+            int compoundKey = (int)Math.ceil(key/10000.0)*dirKey;
+            // if (compoundKey > -1) System.out.println("Alarm!! Alarm!! Compound key = " + compoundKey);
+            //potentialInNodes.add(new Pair(key, node.getZCode()));
+            //potentialInNodes.add(new Pair(dirKey, node.getZCode()));
+            potentialInNodes.add(new Pair(compoundKey, node.getZCode()));
             if (!nodeReachabilityMap.containsKey(node)){
                 nodeReachabilityMap.put(node, new OverlappingNodes(node));
             }
@@ -422,7 +446,13 @@ public class ServiceQueryProcessor {
                         for (HashMap.Entry<Long, Integer> entry : neighbors.entrySet()){
                             long neighborNodeZCode = entry.getKey();
                             Node outNeighborNode = sqTree.getqNodeIndexToNodeMap().get(neighborNodeZCode);
-                            potentialOutNodes.add(new Pair(calculateKey(sqTree.getSummaryGraph().get(neighborNodeZCode)), neighborNodeZCode));
+                            int key = calculateKey(sqTree.getSummaryGraph().get(neighborNodeZCode));
+                            int dirKey = calculateDirectionalKey(outNeighborNode, pktRequest.getNormDestLat(), pktRequest.getNormDestLon());
+                            int compoundKey = (int)Math.ceil(key/10000.0)*dirKey;
+                            // if (compoundKey > -1) System.out.println("Alarm!! Alarm!! Compound key = " + compoundKey);
+                            //potentialOutNodes.add(new Pair(key), neighborNodeZCode));
+                            //potentialOutNodes.add(new Pair(dirKey, neighborNodeZCode));
+                            potentialOutNodes.add(new Pair(compoundKey, neighborNodeZCode));
                             if (!nodeReachabilityMap.containsKey(outNeighborNode)){
                                 nodeReachabilityMap.put(outNeighborNode, new OverlappingNodes(outNeighborNode));
                             }
@@ -455,7 +485,13 @@ public class ServiceQueryProcessor {
                         for (HashMap.Entry<Long, Integer> entry : neighbors.entrySet()){
                             long neighborNodeZCode = entry.getKey();
                             Node inNeighborNode = sqTree.getqNodeIndexToNodeMap().get(neighborNodeZCode);
-                            potentialInNodes.add(new Pair(calculateKey(sqTree.getReverseSummaryGraph().get(neighborNodeZCode)), neighborNodeZCode));
+                            int key = calculateKey(sqTree.getReverseSummaryGraph().get(neighborNodeZCode));
+                            int dirKey = calculateDirectionalKey(inNeighborNode, pktRequest.getNormSrcLat(), pktRequest.getNormSrcLon());
+                            int compoundKey = (int)Math.ceil(key/10000.0)*dirKey;
+                            // if (compoundKey > -1) System.out.println("Alarm!! Alarm!! Compound key = " + compoundKey);
+                            //potentialInNodes.add(new Pair(key, neighborNodeZCode));
+                            //potentialInNodes.add(new Pair(dirKey, neighborNodeZCode));
+                            potentialInNodes.add(new Pair(compoundKey, neighborNodeZCode));
                             if (!nodeReachabilityMap.containsKey(inNeighborNode)){
                                 nodeReachabilityMap.put(inNeighborNode, new OverlappingNodes(inNeighborNode));
                             }
@@ -496,6 +532,7 @@ public class ServiceQueryProcessor {
                 // pending : temporal filtering
                 // check for time bucket intersection of base quadtree node and summary node
                 // prune if the time windows are disjoint
+                //if (!baseQuadTreeNodes.contains(n)) System.out.println(n);
                 baseQuadTreeNodes.add(n);
             }
         }
@@ -528,6 +565,85 @@ public class ServiceQueryProcessor {
         //System.out.println("Retrieved trajectories = " + retrievedTrajs.size());
         
         return new ArrayList<>(retrievedTrajs);
+    }
+    
+    public ArrayList<Node> retrieveRangeQueryNodes(PacketRequest pktRequest){
+        
+        double xMin = pktRequest.getNormSrcLat()-latDisThreshold;
+        double xMax = pktRequest.getNormSrcLat()+latDisThreshold;
+        double yMin = pktRequest.getNormSrcLon()-lonDisThreshold;
+        double yMax = pktRequest.getNormSrcLon()+lonDisThreshold;
+        
+        xMin = Math.min(xMin, pktRequest.getNormDestLat()-latDisThreshold);
+        xMax = Math.max(xMax, pktRequest.getNormDestLat()+latDisThreshold);
+        yMin = Math.min(yMin, pktRequest.getNormDestLon()-lonDisThreshold);
+        yMax = Math.max(yMax, pktRequest.getNormDestLon()+lonDisThreshold);
+        
+        Node[] baseQuadTreeNodes = quadTrajTree.getSqTree().searchIntersect(xMin, yMin, xMax, yMax);
+        /*
+        for (Node n : baseQuadTreeNodes){
+            System.out.println(n);
+        }
+        */
+        //List<String> list = Arrays.asList(array);
+        
+        //List<String> list1 = new ArrayList<String>();
+        //Collections.addAll(list1, array);
+        return new ArrayList<Node>(Arrays.asList(baseQuadTreeNodes));
+    }
+    
+    public TrajGraph constructTrajGraph_join(ArrayList<Trajectory> trajectoryList){
+        //return constructDummyTrajGraph(trajectoryList);
+        
+        TrajGraph trajGraph = new TrajGraph();
+        for (Trajectory trajectory : trajectoryList){
+            TrajPoint prevPoint = null;
+            String trajId = trajectory.getTrajId();
+            Integer stopId = null;
+            for (TrajPoint trajPoint : trajectory.getPointList()){
+                stopId = trajPoint.getStoppage().getStopId();
+                if (stopId == null){
+                    // should never reach here
+                    System.out.println("Terminating abruptly...");
+                    System.out.println(trajPoint);
+                    System.exit(0);
+                }
+                if (trajId == null){
+                    // should never reach here
+                    System.out.println("Terminating abruptly...");
+                    System.out.println(trajectory);
+                    System.exit(0);
+                }
+                if (prevPoint != null){
+                    trajGraph.addTrajIdToStop(prevPoint.getStoppage().getStopId(), trajId);
+                    // starting working without time
+                    //TrajGraphNode fromNode = new TrajGraphNode(prevPoint.getStoppage().getStopId(), false, prevPoint.getTimeInSec(), trajectory.getTrajId());
+                    //TrajGraphNode toNode = new TrajGraphNode(trajPoint.getStoppage().getStopId(), false, trajPoint.getTimeInSec(), trajectory.getTrajId());
+                    TrajGraphNode fromNode = new TrajGraphNode(prevPoint.getStoppage().getStopId(), trajId);
+                    TrajGraphNode toNode = new TrajGraphNode(stopId, trajId);
+                    trajGraph.addToList(fromNode, toNode);
+                }
+                prevPoint = trajPoint;
+            }
+            if (stopId != null){
+                trajGraph.addTrajIdToStop(stopId, trajId);
+                trajGraph.addStop(stopId);
+                trajGraph.addNode(new TrajGraphNode(stopId, trajId));
+            }
+        }
+        //trajGraph.printStats();
+        //trajGraph.printDetails();
+        //trajGraph.printNeighborsOfNNodes(10);
+        //System.out.println("Trajectory join in TrajGraph...");
+        double fromTime = System.nanoTime();
+        trajGraph = joinNodesByKeeper(trajGraph);
+        //System.out.println("Time = " + (System.nanoTime() - fromTime)/1e9 + " s");
+        //trajGraph.printStats();
+        //trajGraph.printDetails();
+        //trajGraph.printNeighborsOfNNodes(10);
+        //trajGraph.printNStopToTrajIds(100);
+        trajGraph = joinNodesByNearbyKeepers(trajGraph);
+        return trajGraph;
     }
     
     public TrajGraph constructTrajGraph(ArrayList<Trajectory> trajectoryList){
@@ -645,6 +761,35 @@ public class ServiceQueryProcessor {
         return trajGraph;
     }
     
+    TrajGraph joinNodesByNearbyKeepers(TrajGraph trajGraph){
+        int newEdges = 0;
+        HashMap<Integer, HashSet<String>> stopToTrajIdMap = trajGraph.getStopToTrajIdMap();
+        HashMap<Integer, javafx.util.Pair<Double, Double>> stoppageMap = trajProcessor.getStoppageMap();
+        for (Integer stop1 : stopToTrajIdMap.keySet()){
+            for (Integer stop2 : stopToTrajIdMap.keySet()){
+                if (stop1 == stop2) continue;
+                double lat1 = stoppageMap.get(stop1).getKey();
+                double lon1 = stoppageMap.get(stop1).getValue();
+                double lat2 = stoppageMap.get(stop2).getKey();
+                double lon2 = stoppageMap.get(stop2).getValue();
+                double stopDis = distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit);
+                if (stopDis > detourDistanceThreshold) continue;
+                String keeper1 = "K-"+stop1;
+                String keeper2 = "K-"+stop2;
+                //System.out.println("Keeper K-" + stopId + " added");
+                TrajGraphNode node1 = new TrajGraphNode(stop1, keeper1, true);
+                TrajGraphNode node2 = new TrajGraphNode(stop2, keeper2, true);
+                trajGraph.addToList(node1, node2);
+                trajGraph.addToList(node2, node1);
+                newEdges += 2;
+                trajGraph.addTrajIdToStop(stop1, keeper1);
+                trajGraph.addTrajIdToStop(stop2, keeper2);
+            }
+        }
+        //System.out.println("New edges = " + newEdges);
+        return trajGraph;
+    }
+    
     ArrayList<TrajGraphNode> traverseToDeliver(TrajGraph trajGraph, PacketRequest pktRequest){
         
         int srcStopId = pktRequest.getSrcId();
@@ -754,8 +899,8 @@ public class ServiceQueryProcessor {
                 curNodeState = parentMap.get(curNodeState);
             }
         }
-        if (bestDeliverers.isEmpty()) System.out.println("0\t" + cost + "\t");
-        else System.out.print("1\t" + cost + "\t");
+        if (bestDeliverers.isEmpty()) System.out.print("false\t" + cost + "\t");
+        else System.out.print("true\t" + cost + "\t");
         
         return bestDeliverers;
     }
@@ -869,7 +1014,7 @@ public class ServiceQueryProcessor {
                 curNodeState = parentMap.get(curNodeState);
             }
         }
-        if (bestDeliverers.isEmpty()) System.out.println(cost + "\t");
+        if (bestDeliverers.isEmpty()) System.out.print(cost + "\t");
         else System.out.print(cost + "\t");
         
         return bestDeliverers;
@@ -984,9 +1129,11 @@ public class ServiceQueryProcessor {
                 curNodeState = parentMap.get(curNodeState);
             }
         }
-        if (bestDeliverers.isEmpty()) System.out.println(cost + "\t");
+        /*
+        if (bestDeliverers.isEmpty()) System.out.print(cost + "\t");
         else System.out.print(cost + "\t");
-        
+        */
+        this.deliveryCost = cost;
         return bestDeliverers;
     }
     
@@ -1001,14 +1148,20 @@ public class ServiceQueryProcessor {
         int toStop = edgeToNode.getStopId();
         double additionalCost = 0;
         double detourOverheadCost = 0;
-        if (fromStop == toStop){
-            detourOverheadCost += 0;    // ignoring detour overhead in case of handover at the same node
-        }
+        
         double lat1 = trajProcessor.getStoppageMap().get(fromStop).getKey();
         double lon1 = trajProcessor.getStoppageMap().get(fromStop).getValue();
         double lat2 = trajProcessor.getStoppageMap().get(toStop).getKey();
         double lon2 = trajProcessor.getStoppageMap().get(toStop).getValue();
         additionalCost = distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit);
+        if (fromStop == toStop){
+            detourOverheadCost += 0;    // ignoring detour overhead in case of handover at the same node
+        }
+        else if (!edgeFromNodeState.getTrajGraphNode().getTrajId().equals(edgeToNode.getTrajId())
+                && edgeFromNodeState.getTrajGraphNode().getIsKeeper() && edgeToNode.getIsKeeper()){
+            // simple assumption : the carrier has to travel back to her path
+            detourOverheadCost = additionalCost;
+        }
         gCost = gCost + additionalCost + detourOverheadCost;
         return gCost;
     }
@@ -1042,16 +1195,74 @@ public class ServiceQueryProcessor {
     }
     
     public ArrayList<TrajGraphNode> deliverPacketModified(PacketRequest pktRequest){
+        long algoStartTime = System.nanoTime();        
         // the following ones is giving a the fewest overlapping nodes (backtracked from overlapping nodes)
         ArrayList<Node> summaryNodes = retrieveSummaryNodesModified(pktRequest);
         ArrayList<Trajectory> reducedTrajs = retrieveTrajsFromSummaryNodes(summaryNodes);
-        TrajGraph trajGraph = constructTrajGraph(reducedTrajs);
+        int trajsRetrieved = reducedTrajs.size();
+        TrajGraph trajGraph;
+        ArrayList<TrajGraphNode> bestDeliverers;
+        
+        trajGraph = constructTrajGraph(reducedTrajs);
         //ArrayList<Trajectory> allTrajs = trajStorage.getTrajDataAsList();
         //TrajGraph trajGraph = constructTrajGraph(allTrajs); // correct later with reducedTrajs
-        ArrayList<TrajGraphNode> bestDeliveres = traverseToDeliver(trajGraph, pktRequest);
-        traverseToDeliver_DistanceCost(trajGraph, pktRequest);
-        traverseToDeliver_AStar(trajGraph, pktRequest);
-        return bestDeliveres;
+        //bestDeliverers = traverseToDeliver(trajGraph, pktRequest);
+        //bestDeliverers = traverseToDeliver_DistanceCost(trajGraph, pktRequest);
+        bestDeliverers = traverseToDeliver_AStar(trajGraph, pktRequest);
+        long algoEndTime = System.nanoTime();
+        double runtimeInSec = (algoEndTime - algoStartTime)/1.0e9;
+        boolean isDelivered = !bestDeliverers.isEmpty();
+        System.out.print(isDelivered + "\t" + this.deliveryCost + "\t" + runtimeInSec + "\t" + trajsRetrieved + "\t");
+        this.deliveryCost = Double.MAX_VALUE;
+        return bestDeliverers;
+    }
+    
+    public ArrayList<TrajGraphNode> deliverPacketModifiedWithJoin(PacketRequest pktRequest){
+        long algoStartTime = System.nanoTime();
+        ArrayList<Node> summaryNodes = retrieveSummaryNodesModified(pktRequest);
+        ArrayList<Trajectory> reducedTrajs = retrieveTrajsFromSummaryNodes(summaryNodes);
+        int trajsRetrieved = reducedTrajs.size();
+        TrajGraph trajGraph;
+        ArrayList<TrajGraphNode> bestDeliverers;
+        trajGraph = constructTrajGraph_join(reducedTrajs);
+        //ArrayList<Trajectory> allTrajs = trajStorage.getTrajDataAsList();
+        //TrajGraph trajGraph = constructTrajGraph(allTrajs); // correct later with reducedTrajs
+        //bestDeliverers = traverseToDeliver(trajGraph, pktRequest);
+        //bestDeliverers = traverseToDeliver_DistanceCost(trajGraph, pktRequest);
+        bestDeliverers = traverseToDeliver_AStar(trajGraph, pktRequest);
+        long algoEndTime = System.nanoTime();
+        double runtimeInSec = (algoEndTime - algoStartTime)/1.0e9;
+        boolean isDelivered = !bestDeliverers.isEmpty();
+        System.out.print(isDelivered + "\t" + this.deliveryCost + "\t" + runtimeInSec + "\t" + trajsRetrieved + "\t");
+        this.deliveryCost = Double.MAX_VALUE;
+        traverseToDeliver(trajGraph, pktRequest);
+        this.deliveryCost = Double.MAX_VALUE;
+        return bestDeliverers;
+    }
+    
+    public ArrayList<TrajGraphNode> deliverPacketBaselineWithJoin(PacketRequest pktRequest){
+        long algoStartTime = System.nanoTime();
+        //ArrayList<Node> summaryNodes = retrieveSummaryNodesModified(pktRequest);
+        ArrayList<Node> rangeQueryNodes = retrieveRangeQueryNodes(pktRequest);
+        // a single node should suffice, but trying to reuse previously written function
+        ArrayList<Trajectory> reducedTrajs = retrieveTrajsFromSummaryNodes(rangeQueryNodes);
+        int trajsRetrieved = reducedTrajs.size();
+        TrajGraph trajGraph;
+        ArrayList<TrajGraphNode> bestDeliverers;
+        trajGraph = constructTrajGraph_join(reducedTrajs);
+        //ArrayList<Trajectory> allTrajs = trajStorage.getTrajDataAsList();
+        //TrajGraph trajGraph = constructTrajGraph(allTrajs); // correct later with reducedTrajs
+        //bestDeliverers = traverseToDeliver(trajGraph, pktRequest);
+        //bestDeliverers = traverseToDeliver_DistanceCost(trajGraph, pktRequest);
+        bestDeliverers = traverseToDeliver_AStar(trajGraph, pktRequest);
+        long algoEndTime = System.nanoTime();
+        double runtimeInSec = (algoEndTime - algoStartTime)/1.0e9;
+        boolean isDelivered = !bestDeliverers.isEmpty();
+        System.out.print(isDelivered + "\t" + this.deliveryCost + "\t" + runtimeInSec+ "\t" + trajsRetrieved + "\t");
+        this.deliveryCost = Double.MAX_VALUE;
+        traverseToDeliver(trajGraph, pktRequest);
+        this.deliveryCost = Double.MAX_VALUE;
+        return bestDeliverers;
     }
     
     // the following method deals with inter node trajectories organized hierarchically

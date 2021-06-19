@@ -15,13 +15,13 @@ import query.PacketRequest;
 public class TestServiceQuery {
 
     public static boolean run(TrajStorage trajStorage, TQIndex quadTrajTree, PacketRequest pktRequest, double latDisThreshold, double lonDisThreshold,
-                                long temporalDisThreshold, DistanceConverter distanceConverter, TrajProcessor trajProcessor, String distanceUnit) {
+                                long temporalDisThreshold, DistanceConverter distanceConverter, TrajProcessor trajProcessor, String distanceUnit, double detourDistanceThreshold) {
 
         //int numberOfRuns = 10;
         //double naiveTime = 0, zOrderTime = 0;
         //for (int i = 0; i < numberOfRuns; i++) {
-            ServiceQueryProcessor processQuery = new ServiceQueryProcessor(trajStorage, quadTrajTree, latDisThreshold, lonDisThreshold,
-                                                                            temporalDisThreshold, distanceConverter, trajProcessor, distanceUnit);
+            ServiceQueryProcessor processQuery = new ServiceQueryProcessor(trajStorage, quadTrajTree, latDisThreshold, lonDisThreshold, temporalDisThreshold,
+                                                                            distanceConverter, trajProcessor, distanceUnit, detourDistanceThreshold);
             //System.out.println("--Service Query--");
             //System.out.println("Optimal:");
             //double from = System.nanoTime();
@@ -41,7 +41,11 @@ public class TestServiceQuery {
             }
             */
             //System.out.println("\n------------------------------------------------------");
-            ArrayList <TrajGraphNode> bestDeliverersModified = processQuery.deliverPacketModified(pktRequest);
+            ArrayList <TrajGraphNode> bestDeliverersModified;
+            bestDeliverersModified = processQuery.deliverPacketModified(pktRequest);
+            bestDeliverersModified = processQuery.deliverPacketModifiedWithJoin(pktRequest);
+            
+            bestDeliverersModified = processQuery.deliverPacketBaselineWithJoin(pktRequest);
             /*
             System.out.println("Best deliverers (modified) size = " + bestDeliverersModified.size());
             for (TrajGraphNode deliverer : bestDeliverersModified){

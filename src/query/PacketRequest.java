@@ -16,7 +16,7 @@ public class PacketRequest {
     long srcTimeInSec, destTimeInSec;
 
     public PacketRequest() {
-    
+        srcId = destId = -1;
     }
 
     public int getSrcId() {

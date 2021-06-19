@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import javafx.util.Pair;
 
 /**
  * Datastructure: A point Quad Tree for representing 2D data. Each
@@ -34,6 +35,9 @@ public class SummaryQuadTree {
     private HashMap<Long, HashMap<Long,Integer>> reverseSummaryGraph;
     // first key = to where, second key = from where, second value = using how many trajs
     private HashMap<Long, Node> qNodeIndexToNodeMap;
+    private HashMap<Integer, Pair<Double,Double>> normalizedStops;
+    private double latProx;
+    private double lonProx;
     
     /**
      * Constructs a new quad tree.
@@ -43,7 +47,8 @@ public class SummaryQuadTree {
      * @param {double} maxX Maximum x-value that can be held in tree.
      * @param {double} maxY Maximum y-value that can be held in tree.
      */
-    public SummaryQuadTree(TrajStorage trajStorage, double minX, double minY, double maxX, double maxY, long minTimeInSec, int timeWindowInSec, int nodeCapacity) {
+    public SummaryQuadTree(TrajStorage trajStorage, double minX, double minY, double maxX, double maxY, long minTimeInSec, int timeWindowInSec,
+                            int nodeCapacity, HashMap<Integer, Pair<Double,Double>> normalizedStops, double latProx, double lonProx){
         count_ = 0;
         nodeCount = 1;
         zCode = 0;
@@ -55,6 +60,9 @@ public class SummaryQuadTree {
         this.nodeCapacity = nodeCapacity;
         summaryGraph = new HashMap<>();
         qNodeIndexToNodeMap = new HashMap<>();
+        this.normalizedStops = normalizedStops;
+        this.latProx = latProx;
+        this.lonProx = lonProx;
     }
 
     /**
@@ -232,7 +240,8 @@ public class SummaryQuadTree {
         double y1 = this.root_.getY();
         double x2 = x1 + this.root_.getW();
         double y2 = y1 + this.root_.getH();
-        final SummaryQuadTree clone = new SummaryQuadTree(new TrajStorage(trajStorage.getTrajData()), x1, y1, x2, y2, this.minTimeInSec, this.timeWindowInSec, nodeCapacity);
+        final SummaryQuadTree clone = new SummaryQuadTree(new TrajStorage(trajStorage.getTrajData()), x1, y1, x2, y2, this.minTimeInSec, this.timeWindowInSec,
+                                                            this.nodeCapacity, this.normalizedStops, this.latProx, this.lonProx);
         // This is inefficient as the clone needs to recalculate the structure of the
         // tree, even though we know it already.  But this is easier and can be
         // optimized when/if needed.
@@ -609,7 +618,49 @@ public class SummaryQuadTree {
                 if (!summaryGraph.containsKey(prev)) summaryGraph.put(prev, new HashMap<>());
             }
         }
+        System.out.println("New summary node joins by keepers = " + joinSummaryNodesByKeepers());
         buildReverseSummaryGraph();
+    }
+    
+    private int joinSummaryNodesByKeepers(){
+        int howManyNewNodesJoined = 0;
+        for (HashMap.Entry<Integer, Pair<Double,Double>> stopEntry : normalizedStops.entrySet()){
+            int stopId = stopEntry.getKey();
+            double normLat = stopEntry.getValue().getKey();
+            double normLon = stopEntry.getValue().getValue();
+            double xMin, xMax, yMin, yMax;
+            xMin = normLat - latProx;
+            xMax = normLat + latProx;
+            yMin = normLon - lonProx;
+            yMax = normLon + lonProx;
+            Node[] summaryNodesViaKeepers = searchIntersect(xMin, yMin, xMax, yMax);
+            for (Node node1 : summaryNodesViaKeepers){
+                if (node1.getNodeType() != NodeType.LEAF) continue;
+                long zCode1 = node1.getZCode();
+                for (Node node2 : summaryNodesViaKeepers){
+                    if (node2.getNodeType() != NodeType.LEAF) continue;
+                    long zCode2 = node2.getZCode();
+                    if (zCode1 != zCode2){
+                        if (!summaryGraph.get(zCode1).containsKey(zCode2)){
+                            summaryGraph.get(zCode1).put(zCode2, 0);
+                            howManyNewNodesJoined++;
+                        }
+                        int trajReachabilityCount = summaryGraph.get(zCode1).get(zCode2);
+                        summaryGraph.get(zCode1).put(zCode2, trajReachabilityCount+1);
+                        // opposite direction as stops will join them bidirectionally
+                        if (!summaryGraph.get(zCode2).containsKey(zCode1)){
+                            summaryGraph.get(zCode2).put(zCode1, 0);
+                            howManyNewNodesJoined++;
+                        }
+                        trajReachabilityCount = summaryGraph.get(zCode2).get(zCode1);
+                        summaryGraph.get(zCode2).put(zCode1, trajReachabilityCount+1);
+                    }
+                    if (!summaryGraph.containsKey(zCode1)) summaryGraph.put(zCode1, new HashMap<>());
+                    if (!summaryGraph.containsKey(zCode2)) summaryGraph.put(zCode2, new HashMap<>());
+                }
+            }
+        }
+        return howManyNewNodesJoined;
     }
     
     private void buildReverseSummaryGraph(){

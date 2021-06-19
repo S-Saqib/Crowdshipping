@@ -79,13 +79,14 @@ public class TrajGraphNode/* implements Comparable<TrajGraphNode>*/{
         return timeInSec;
     }
     
-    public boolean isIsKeeper() {
+    public boolean getIsKeeper() {
         return isKeeper;
     }
 
     public int getStopId() {
         return stopId;
     }
+    
     
     
     /*

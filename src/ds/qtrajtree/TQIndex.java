@@ -23,6 +23,7 @@ import ds.rtree.Rtree;
 import ds.trajectory.TrajPoint;
 import ds.trajectory.Trajectory;
 import java.util.TreeSet;
+import javafx.util.Pair;
 
 public class TQIndex {
 
@@ -76,7 +77,7 @@ public class TQIndex {
         quadTree = new QuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec);    // since trajectories are already normalized in this range
         
         int pointsInSummaryNode = 0;
-        sqTree = new SummaryQuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec, pointsInSummaryNode);
+        sqTree = null;
         
         // now read data in chunks and build the first level quadtree
         ArrayList<Trajectory> trajectories = this.trajStorage.getNextChunkAsList();
@@ -120,8 +121,8 @@ public class TQIndex {
         trajStorage.clearQNodeToPointListMap();
     }
     
-    public void buildSummaryIndex(int pointsInSummaryNode){
-        sqTree = new SummaryQuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec, pointsInSummaryNode);
+    public void buildSummaryIndex(int pointsInSummaryNode, HashMap<Integer, Pair<Double,Double>> normalizedStops, double latProx, double lonProx){
+        sqTree = new SummaryQuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec, pointsInSummaryNode, normalizedStops, latProx, lonProx);
         trajStorage.resetSummaryTrajData();
         // now read data in chunks and build the first level quadtree
         ArrayList<Trajectory> trajectories = this.trajStorage.getNextChunkAsList();

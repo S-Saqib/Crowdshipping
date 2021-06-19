@@ -118,6 +118,22 @@ public class DistanceConverter {
         return Math.abs(distance(lat1, lat2, lon1, lon2, unit));
     }
     
+    public double absDistanceFromNormalizedValues(double lat1,  double lat2, double lon1, double lon2, String unit){
+        lat1 = denormalizeLat(lat1);
+        lat2 = denormalizeLat(lat2);
+        lon1 = denormalizeLon(lon1);
+        lon2 = denormalizeLon(lon2);
+        return Math.abs(distance(lat1, lat2, lon1, lon2, unit));
+    }
+    
+    public double denormalizeLat(double normalizedLat){
+        return (normalizedLat/100*(maxLat-minLat) + minLat);
+    }
+    
+    public double denormalizeLon(double normalizedLon){
+        return (normalizedLon/100*(maxLon-minLon) + minLon);
+    }
+    
     public double avgAbsLatDistance(String unit){
         double latDis1 = distance(maxLat, minLat, maxLon, maxLon, unit);
         double latDis2 = distance(maxLat, minLat, minLon, minLon, unit);
