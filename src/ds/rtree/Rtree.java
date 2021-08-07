@@ -21,9 +21,12 @@ import java.util.HashMap;
 public class Rtree {
     private HashMap<String, TransformedTrajectory> transformedTrajectories;
     private RTree<String, Geometry> tree;
+    private double avgPerBlock;
 
-    public Rtree(HashMap<String, TransformedTrajectory> transformedTrajectories) {
+    public Rtree(HashMap<String, TransformedTrajectory> transformedTrajectories, int maxPerBlock, int minPerBlock) {
         this.transformedTrajectories = transformedTrajectories;
+        //RTree.star().maxChildren(maxPerBlock);
+        //RTree.star().minChildren(minPerBlock);
         this.tree = RTree.star().dimensions(2).create();
         
         transformedTrajectories.entrySet().forEach((entry) -> {
@@ -40,6 +43,7 @@ public class Rtree {
 
             @Override
             public void leaf(Leaf<String, Geometry> node) {
+                //System.out.println(node);
                 node.entries().forEach((entry) -> {
                     trajectoryToLeafMapping.put(entry.value(), leafCount[0]);
                 });
@@ -51,8 +55,14 @@ public class Rtree {
                 //System.out.println(node);
             }
         });
+        //System.out.println("Leaf count = " + leafCount[0]);
+        avgPerBlock = transformedTrajectories.size()/leafCount[0];
         return trajectoryToLeafMapping;
     }
     
+    public int getAvgTrajsPerBlock(){
+        //getTrajectoryToLeafMapping();
+        return (int)Math.ceil(avgPerBlock);
+    }
     
 }

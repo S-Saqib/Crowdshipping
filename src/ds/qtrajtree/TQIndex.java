@@ -29,7 +29,13 @@ public class TQIndex {
 
     private final QuadTree quadTree;
     
+    private final int maxTrajsPerBlock;
+    private final int minTrajsPerBlock;
+    private int avgTrajsPerBlock;
+    
     private SummaryQuadTree sqTree;
+    
+    private QuadTree stoppageQuadTree;
     
     private final TrajStorage trajStorage;
     
@@ -70,6 +76,10 @@ public class TQIndex {
         this.minTimeInSec = minTimeInSec;
         this.timeWindowInSec = timeWindowInSec;
         
+        this.maxTrajsPerBlock = 32;
+        this.minTrajsPerBlock = 8;
+        this.avgTrajsPerBlock = 0;
+        
         qNodeTrajsCount = new HashMap<Node, Integer>();
         qNodeToAnonymizedTrajIdsMap = new HashMap<Node, ArrayList<String>>();
         qNodeToNextLevelIndexMap = new HashMap<Node, QuadTree>();
@@ -77,7 +87,8 @@ public class TQIndex {
         quadTree = new QuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec);    // since trajectories are already normalized in this range
         
         int pointsInSummaryNode = 0;
-        sqTree = null;
+        this.sqTree = null;
+        this.stoppageQuadTree = null;
         
         // now read data in chunks and build the first level quadtree
         ArrayList<Trajectory> trajectories = this.trajStorage.getNextChunkAsList();
@@ -105,8 +116,12 @@ public class TQIndex {
         quadTree.transformTrajectories(quadTree.getRootNode());
         // trajStorage.printTrajectories();
         // the following will be done when we have the disk block ids in trajStorage
-        Rtree rTree = new Rtree(trajStorage.getTransformedTrajData());
-        trajStorage.setTrajIdToDiskBlockIdMap(rTree.getTrajectoryToLeafMapping());
+        Rtree rTree = new Rtree(trajStorage.getTransformedTrajData(), this.maxTrajsPerBlock, this.minTrajsPerBlock);
+        HashMap<String, Integer> trajToRTreeLeafMapping = rTree.getTrajectoryToLeafMapping();
+        // average calculated in the leaf mapping function
+        this.avgTrajsPerBlock = rTree.getAvgTrajsPerBlock();
+        System.err.println("Avg trajs per block = " + avgTrajsPerBlock);
+        trajStorage.setTrajIdToDiskBlockIdMap(trajToRTreeLeafMapping);
         quadTree.tagDiskBlockIdsToNodes(quadTree.getRootNode());
         trajStorage.setDiskBlockIdToTrajIdListMap();
         
@@ -121,8 +136,8 @@ public class TQIndex {
         trajStorage.clearQNodeToPointListMap();
     }
     
-    public void buildSummaryIndex(int pointsInSummaryNode, HashMap<Integer, Pair<Double,Double>> normalizedStops, double latProx, double lonProx){
-        sqTree = new SummaryQuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec, pointsInSummaryNode, normalizedStops, latProx, lonProx);
+    public void buildSummaryIndex(int pointsInSummaryNode, HashMap<Integer, Pair<Double,Double>> normalizedKeepers, double latProx, double lonProx){
+        sqTree = new SummaryQuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec, pointsInSummaryNode, normalizedKeepers, latProx, lonProx);
         trajStorage.resetSummaryTrajData();
         // now read data in chunks and build the first level quadtree
         ArrayList<Trajectory> trajectories = this.trajStorage.getNextChunkAsList();
@@ -154,6 +169,20 @@ public class TQIndex {
         //sqTree.printTimeBucketHistogramData();
         
         trajStorage.clearQNodeToPointListMap();
+    }
+    
+    public void indexStoppages(HashMap<Integer,Pair<Double,Double>> normalizedStopsMap){
+        stoppageQuadTree = new QuadTree(trajStorage, 0.0, 0.0, 100.0, 100.0, minTimeInSec, timeWindowInSec);
+        int pointCount = 0;
+         for (Map.Entry<Integer,Pair<Double,Double>> entry : normalizedStopsMap.entrySet()) {
+            int stopId = entry.getKey();
+            double x = entry.getValue().getKey();
+            double y = entry.getValue().getValue();
+            long trajPointTimeInSec = 0;
+            // traj id in points is considered as stop id
+            stoppageQuadTree.set(x, y, trajPointTimeInSec, new Integer(pointCount++), Integer.toString(stopId));
+        }
+        // won't clear node to point list map and will use it in range query as no. of stops is expected to be limited
     }
     
     public void printSummaryIndex(){
@@ -330,6 +359,10 @@ public class TQIndex {
 
     public SummaryQuadTree getSqTree() {
         return sqTree;
+    }
+
+    public QuadTree getStoppageQuadTree() {
+        return stoppageQuadTree;
     }
     
     public void draw() {

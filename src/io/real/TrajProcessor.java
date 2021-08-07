@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
 import javafx.util.Pair;
 
 /**
@@ -37,9 +38,11 @@ public class TrajProcessor {
     private HashSet<Integer> excludeUserIds;
     private HashMap<String, Trajectory> trajIdToTrajMap;
     private HashMap<String, Trajectory> trajIdToNormalizedTrajMap;
-    private HashMap<Integer, ArrayList<String>> userIdToTrajIdMap;
+    private HashMap<Integer, HashSet<String>> userIdToTrajIdMap;
     private HashMap<Integer, Pair<Double,Double>> stoppageMap;
     private HashMap<Integer, Pair<Double,Double>> normalizedStoppageMap;
+    private HashMap<Integer, Pair<Double,Double>> keeperMap;
+    private HashMap<Integer, Pair<Double,Double>> normalizedKeeperMap;
     
     public TrajProcessor(){
         excludeUserIds = new HashSet<>();
@@ -48,6 +51,8 @@ public class TrajProcessor {
         userIdToTrajIdMap = new HashMap<>();
         stoppageMap = new HashMap<>();
         normalizedStoppageMap = new HashMap<>();
+        keeperMap = new HashMap<>();
+        normalizedKeeperMap = new HashMap<>();
         // the following variables are used in spatial normalization
         minLon = minLat = 1000;
         maxLon = maxLat = -1000;
@@ -153,7 +158,7 @@ public class TrajProcessor {
             
             // when a new cardid i.e. userId is encountered the first time, a new entry in the userIdToTrajIdMap is generated
             if (!userIdToTrajIdMap.containsKey(userId)){
-                userIdToTrajIdMap.put(userId, new ArrayList<>());
+                userIdToTrajIdMap.put(userId, new HashSet<>());
                 currentTrajUserId = userId;
                 userCount++;
             }
@@ -289,7 +294,7 @@ public class TrajProcessor {
     
     public void printTrajs(int count){
         System.out.println("No. of Users = " + userIdToTrajIdMap.size());
-        for (Map.Entry<Integer, ArrayList<String>> entry : userIdToTrajIdMap.entrySet()){
+        for (Map.Entry<Integer, HashSet<String>> entry : userIdToTrajIdMap.entrySet()){
             System.out.println("User " + entry.getKey() + " has " + entry.getValue().size() + " trajectories:");
             for (String trajId : entry.getValue()){
                 System.out.println(trajIdToTrajMap.get(trajId));
@@ -302,7 +307,7 @@ public class TrajProcessor {
     public void printNormalizedTrajs(int count){
         System.out.println("After normalization");
         System.out.println("No. of Users = " + userIdToTrajIdMap.size());
-        for (Map.Entry<Integer, ArrayList<String>> entry : userIdToTrajIdMap.entrySet()){
+        for (Map.Entry<Integer, HashSet<String>> entry : userIdToTrajIdMap.entrySet()){
             System.out.println("User " + entry.getKey() + " has " + entry.getValue().size() + " trajectories:");
             for (String trajId : entry.getValue()){
                 System.out.println(trajIdToNormalizedTrajMap.get(trajId));
@@ -334,13 +339,38 @@ public class TrajProcessor {
         System.out.println("Trajs = " + trajIdToTrajMap.size());
         int[] trajCountWiseUserCount = new int[100];
         Arrays.fill(trajCountWiseUserCount, 0);
-        for (Map.Entry<Integer, ArrayList<String>> entry : userIdToTrajIdMap.entrySet()){
+        for (Map.Entry<Integer, HashSet<String>> entry : userIdToTrajIdMap.entrySet()){
             int trajCount = entry.getValue().size();
             trajCountWiseUserCount[trajCount]++;
         }
         for (int i=0; i<trajCountWiseUserCount.length; i++){
             if (trajCountWiseUserCount[i] == 0) continue;
             System.out.println(i + " Trajs : " + trajCountWiseUserCount[i] + " Users");
+        }
+
+        int[] pointWiseTrajCount = new int[100];
+        Arrays.fill(pointWiseTrajCount, 0);
+        int maxPoints = Integer.MIN_VALUE;
+        int minPoints = Integer.MAX_VALUE;
+        int onePointTrajCount = 0;
+        double avgPoints = 0;
+        for (Map.Entry<String,Trajectory> entry : trajIdToTrajMap.entrySet()){
+            Trajectory traj = entry.getValue();
+            int pointCount = traj.getPointList().size();
+            if (pointCount == 1) onePointTrajCount++;
+            else if (pointCount > maxPoints) maxPoints = pointCount;
+            else if (pointCount < minPoints) minPoints = pointCount;
+            avgPoints += pointCount;
+            pointWiseTrajCount[pointCount]++;
+        }
+        avgPoints/=trajIdToTrajMap.size();
+        System.out.println("Max points per traj= " + maxPoints);
+        System.out.println("Min points per traj= " + minPoints);
+        System.out.println("Avg points per traj= " + avgPoints);
+        System.out.println("1 point traj count = " + maxPoints);
+        for (int i=0; i<pointWiseTrajCount.length; i++){
+            if (pointWiseTrajCount[i] == 0) continue;
+            System.out.println(i + " Points : " + pointWiseTrajCount[i] + " Trajs");
         }
     }
     
@@ -398,6 +428,68 @@ public class TrajProcessor {
 
     public HashMap<Integer, Pair<Double, Double>> getNormalizedStoppageMap() {
         return normalizedStoppageMap;
+    }
+    
+    public void useNTrajsAsDataSet(int trajCount){
+        HashMap <String, Trajectory> fixedSizeTrajMap = new HashMap<>();
+        for (HashMap.Entry<String, Trajectory> entry : trajIdToTrajMap.entrySet()) {
+            String key = entry.getKey();
+            Trajectory value = entry.getValue();
+            fixedSizeTrajMap.put(key, value);
+            if (--trajCount == 0) break;
+        }
+        trajIdToTrajMap.clear();
+        trajIdToTrajMap = fixedSizeTrajMap;
+        ArrayList<Integer> userIdsToBeRemoved = new ArrayList<>();
+        for (HashMap.Entry<Integer, HashSet<String>> entry : userIdToTrajIdMap.entrySet()){
+            Integer key = entry.getKey();
+            HashSet <String> value = entry.getValue();
+            boolean userHasTrajs = false;
+            for (String trajId : value){
+                if (trajIdToTrajMap.containsKey(trajId)){
+                    userHasTrajs = true;
+                    break;
+                }
+            }
+            if (!userHasTrajs){
+                userIdsToBeRemoved.add(key);
+            }
+        }
+        
+        for (Integer key : userIdsToBeRemoved){
+            userIdToTrajIdMap.remove(key);
+        }
+        
+        System.out.println(userIdsToBeRemoved.size() + " users excluded for dataset size");
+    }
+    
+    public void useNPercentStopsAsKeepers(int keeperPercentage){
+        int keeperCount = (int)(normalizedStoppageMap.size()*keeperPercentage/100.0);
+        ArrayList<Integer> allValidStopIds = new ArrayList<>(normalizedStoppageMap.keySet());
+        Random randomIndexGenerator = new Random();
+        for (int i=0; i<keeperCount; i++){
+            int keeperIndex = randomIndexGenerator.nextInt(allValidStopIds.size());
+            int keeperId = allValidStopIds.get(keeperIndex);
+            if (keeperMap.containsKey(keeperId)){
+                i--;
+                continue;
+            }
+            keeperMap.put(keeperId, stoppageMap.get(keeperId));
+            normalizedKeeperMap.put(keeperId, normalizedStoppageMap.get(keeperId));
+        }
+    }
+
+    public HashMap<Integer, Pair<Double, Double>> getKeeperMap() {
+        return keeperMap;
+    }
+
+    public HashMap<Integer, Pair<Double, Double>> getNormalizedKeeperMap() {
+        return normalizedKeeperMap;
+    }
+    
+    public HashSet<Integer> getNormalizedKeeperSet(){
+        //return (HashSet<Integer>) normalizedKeeperMap.keySet();
+        return new HashSet<Integer>(normalizedKeeperMap.keySet());
     }
     
 }

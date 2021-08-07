@@ -24,6 +24,7 @@ public class PacketDeliveryQuery {
     private String distanceUnit;
     private ArrayList <Integer> srcStops;
     private ArrayList <Integer> destStops;
+    private ArrayList<ArrayList<Pair<Integer,Integer>>> bucketedStops;
     // besides normalization, some stops out of bound are pruned in this hash map
     // so better to generate src, dest id from the normalized map
     PacketRequest pktReq;
@@ -42,6 +43,7 @@ public class PacketDeliveryQuery {
         pktReq = new PacketRequest();
         srcStops = new ArrayList<>();
         destStops = new ArrayList<>();
+        this.bucketedStops = new ArrayList<>();
     }
     
     public void generatePktDeliveryReq(){
@@ -107,6 +109,48 @@ public class PacketDeliveryQuery {
         generatePktDeliveryReq(from, to);
     }
     
+    public void groupDistanceWiseSrcDest(){
+        int bucketCount = 6;
+        for (int i=0; i<bucketCount; i++){
+            bucketedStops.add(new ArrayList<>());
+        }
+        
+        for (HashMap.Entry<Integer, Pair<Double, Double>> fromEntry : normalizedStoppageMap.entrySet()){
+            int from = fromEntry.getKey();
+            for (HashMap.Entry<Integer, Pair<Double, Double>> toEntry : normalizedStoppageMap.entrySet()){
+                int to = toEntry.getKey();
+                if (from == to) continue;
+
+                double lat1 = stoppageMap.get(from).getKey();
+                double lon1 = stoppageMap.get(from).getValue();
+                double lat2 = stoppageMap.get(to).getKey();
+                double lon2 = stoppageMap.get(to).getValue();
+                
+                double pktDis = distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit);
+                int bucketId = -1;
+                if (pktDis <= 2500){    // in meters
+                    bucketId = 0;
+                }
+                else if (pktDis <= 5000){
+                    bucketId = 1;
+                }
+                else if (pktDis <= 10000){
+                    bucketId = 2;
+                }
+                else if (pktDis <= 20000){
+                    bucketId = 3;
+                }
+                else if (pktDis <= 40000){
+                    bucketId = 4;
+                }
+                else bucketId = 5;
+                
+                Pair <Integer, Integer> srcToDestIndex = new Pair(from, to);
+                bucketedStops.get(bucketId).add(srcToDestIndex);
+            }
+        }
+    }
+    
     public void populateRandomSrcDestIds(int size){
         resetPktDeliveryReq();
         ArrayList<Integer> allValidStopIds = new ArrayList<>(normalizedStoppageMap.keySet());
@@ -114,8 +158,72 @@ public class PacketDeliveryQuery {
         for (int i=0; i<size; i++){
             int srcIndex = randomIndexGenerator.nextInt(allValidStopIds.size());
             int destIndex = randomIndexGenerator.nextInt(allValidStopIds.size());
+            allValidStopIds.get(srcIndex);
             srcStops.add(allValidStopIds.get(srcIndex));
             destStops.add(allValidStopIds.get(destIndex));
+        }
+    }
+    
+    public void populateCertainDistanceSrcDestIds(int size, int bucketId){
+        resetPktDeliveryReq();
+        double minDis, maxDis;
+        if (bucketId == 0){
+            minDis = 0;
+            maxDis = 2500;
+        }
+        else if (bucketId == 1){
+            minDis = 2500;
+            maxDis = 5000;
+        }
+        else if (bucketId == 2){
+            minDis = 5000;
+            maxDis = 10000;
+        }
+        else if (bucketId == 3){
+            minDis = 10000;
+            maxDis = 20000;
+        }
+        else if (bucketId == 4){
+            minDis = 20000;
+            maxDis = 40000;
+        }
+        else{
+            minDis = 40000;
+            maxDis= Double.MAX_VALUE;
+        }
+        ArrayList<Integer> allValidStopIds = new ArrayList<>(normalizedStoppageMap.keySet());
+        Random randomIndexGenerator = new Random();
+        for (int i=0; i<size; i++){
+            int srcIndex = randomIndexGenerator.nextInt(allValidStopIds.size());
+            int destIndex = randomIndexGenerator.nextInt(allValidStopIds.size());
+            
+            int from = allValidStopIds.get(srcIndex);
+            int to = allValidStopIds.get(destIndex);
+            double lat1 = stoppageMap.get(from).getKey();
+            double lon1 = stoppageMap.get(from).getValue();
+            double lat2 = stoppageMap.get(to).getKey();
+            double lon2 = stoppageMap.get(to).getValue();
+                
+            double pktDis = distanceConverter.absDistance(lat1, lat2, lon1, lon2, distanceUnit);
+            
+            if (pktDis < minDis || pktDis > maxDis){
+                i--;
+                continue;
+            }
+            
+            srcStops.add(allValidStopIds.get(srcIndex));
+            destStops.add(allValidStopIds.get(destIndex));
+        }
+    }
+    
+    public void populateRandomBucketedPackets(int size, int bucketId){
+        resetPktDeliveryReq();
+        ArrayList<Pair<Integer,Integer>> validSrcDestPairs = bucketedStops.get(bucketId);
+        Random randomIndexGenerator = new Random();
+        for (int i=0; i<size; i++){
+            int index = randomIndexGenerator.nextInt(validSrcDestPairs.size());
+            srcStops.add(validSrcDestPairs.get(index).getKey());
+            destStops.add(validSrcDestPairs.get(index).getValue());
         }
     }
     

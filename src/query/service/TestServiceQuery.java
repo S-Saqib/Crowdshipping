@@ -3,25 +3,21 @@ package query.service;
 import db.TrajStorage;
 import java.util.ArrayList;
 import ds.qtrajtree.TQIndex;
-import ds.trajectory.TrajPoint;
-import ds.trajectory.Trajectory;
-import ds.trajgraph.TrajGraph;
 import ds.trajgraph.TrajGraphNode;
 import io.real.TrajProcessor;
-import java.util.HashMap;
-import java.util.TreeSet;
-import query.PacketRequest;
+import java.util.HashSet;
+import query.PacketDeliveryQuery;
 
 public class TestServiceQuery {
 
-    public static boolean run(TrajStorage trajStorage, TQIndex quadTrajTree, PacketRequest pktRequest, double latDisThreshold, double lonDisThreshold,
-                                long temporalDisThreshold, DistanceConverter distanceConverter, TrajProcessor trajProcessor, String distanceUnit, double detourDistanceThreshold) {
+    public static boolean run(TrajStorage trajStorage, TQIndex quadTrajTree, PacketDeliveryQuery pktRequest, double latDisThreshold, double lonDisThreshold, long temporalDisThreshold,
+                            DistanceConverter distanceConverter, TrajProcessor trajProcessor, double detourDistanceThreshold, HashSet<Integer> normalizedKeepers) {
 
         //int numberOfRuns = 10;
         //double naiveTime = 0, zOrderTime = 0;
         //for (int i = 0; i < numberOfRuns; i++) {
-            ServiceQueryProcessor processQuery = new ServiceQueryProcessor(trajStorage, quadTrajTree, latDisThreshold, lonDisThreshold, temporalDisThreshold,
-                                                                            distanceConverter, trajProcessor, distanceUnit, detourDistanceThreshold);
+            ServiceQueryProcessor processQuery = new ServiceQueryProcessor(trajStorage, quadTrajTree, latDisThreshold, lonDisThreshold, temporalDisThreshold, distanceConverter,
+                                                                            trajProcessor, pktRequest.getDistanceUnit(), detourDistanceThreshold, normalizedKeepers);
             //System.out.println("--Service Query--");
             //System.out.println("Optimal:");
             //double from = System.nanoTime();
@@ -46,6 +42,7 @@ public class TestServiceQuery {
             bestDeliverersModified = processQuery.deliverPacketModifiedWithJoin(pktRequest);
             
             bestDeliverersModified = processQuery.deliverPacketBaselineWithJoin(pktRequest);
+            //bestDeliverersModified = processQuery.deliverPacketAllTrajWithJoin(pktRequest);
             /*
             System.out.println("Best deliverers (modified) size = " + bestDeliverersModified.size());
             for (TrajGraphNode deliverer : bestDeliverersModified){

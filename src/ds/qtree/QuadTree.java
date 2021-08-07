@@ -170,6 +170,15 @@ public class QuadTree {
         return arr.toArray(new Node[arr.size()]);
     }
     
+    public ArrayList<Object> getPointTrajIdsInRange(double xmin, double ymin, double xmax, double ymax){
+        Node[] nodes = searchIntersect(xmin, ymin, xmax, ymax);
+        ArrayList<Object> trajIds = new ArrayList<>();
+        for (Node node : nodes){
+            trajIds.add(trajStorage.getPointsFromQNode(node));
+        }
+        return trajIds;
+    }
+    
     // the following method is not used, so not updated like searchIntersect
     public Point[] searchWithin(final double xmin, final double ymin, final double xmax, final double ymax) {
         final List<Point> arr = new ArrayList<Point>();

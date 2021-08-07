@@ -35,7 +35,7 @@ public class SummaryQuadTree {
     private HashMap<Long, HashMap<Long,Integer>> reverseSummaryGraph;
     // first key = to where, second key = from where, second value = using how many trajs
     private HashMap<Long, Node> qNodeIndexToNodeMap;
-    private HashMap<Integer, Pair<Double,Double>> normalizedStops;
+    private HashMap<Integer, Pair<Double,Double>> normalizedKeepers;
     private double latProx;
     private double lonProx;
     
@@ -48,7 +48,7 @@ public class SummaryQuadTree {
      * @param {double} maxY Maximum y-value that can be held in tree.
      */
     public SummaryQuadTree(TrajStorage trajStorage, double minX, double minY, double maxX, double maxY, long minTimeInSec, int timeWindowInSec,
-                            int nodeCapacity, HashMap<Integer, Pair<Double,Double>> normalizedStops, double latProx, double lonProx){
+                            int nodeCapacity, HashMap<Integer, Pair<Double,Double>> normalizedKeepers, double latProx, double lonProx){
         count_ = 0;
         nodeCount = 1;
         zCode = 0;
@@ -60,7 +60,7 @@ public class SummaryQuadTree {
         this.nodeCapacity = nodeCapacity;
         summaryGraph = new HashMap<>();
         qNodeIndexToNodeMap = new HashMap<>();
-        this.normalizedStops = normalizedStops;
+        this.normalizedKeepers = normalizedKeepers;
         this.latProx = latProx;
         this.lonProx = lonProx;
     }
@@ -241,7 +241,7 @@ public class SummaryQuadTree {
         double x2 = x1 + this.root_.getW();
         double y2 = y1 + this.root_.getH();
         final SummaryQuadTree clone = new SummaryQuadTree(new TrajStorage(trajStorage.getTrajData()), x1, y1, x2, y2, this.minTimeInSec, this.timeWindowInSec,
-                                                            this.nodeCapacity, this.normalizedStops, this.latProx, this.lonProx);
+                                                            this.nodeCapacity, this.normalizedKeepers, this.latProx, this.lonProx);
         // This is inefficient as the clone needs to recalculate the structure of the
         // tree, even though we know it already.  But this is easier and can be
         // optimized when/if needed.
@@ -624,7 +624,7 @@ public class SummaryQuadTree {
     
     private int joinSummaryNodesByKeepers(){
         int howManyNewNodesJoined = 0;
-        for (HashMap.Entry<Integer, Pair<Double,Double>> stopEntry : normalizedStops.entrySet()){
+        for (HashMap.Entry<Integer, Pair<Double,Double>> stopEntry : normalizedKeepers.entrySet()){
             int stopId = stopEntry.getKey();
             double normLat = stopEntry.getValue().getKey();
             double normLon = stopEntry.getValue().getValue();

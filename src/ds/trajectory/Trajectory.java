@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.TreeSet;
 
 public class Trajectory {
-    
+    // rough memory estimation : points, trajId
     private int userId;
     private String trajId;
     private int fromSample;

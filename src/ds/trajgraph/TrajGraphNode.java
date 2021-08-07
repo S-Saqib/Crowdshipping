@@ -34,6 +34,9 @@ public class TrajGraphNode/* implements Comparable<TrajGraphNode>*/{
         this.stopId = stopId;
         this.trajId = trajId;
         this.isKeeper = isKeeper;
+        this.latKey = -1;
+        this.lonKey = -1;
+        this.timeInSec = -1;
     }
     
     public TrajGraphNode(int stopId, String trajId, long timeInSec) {
