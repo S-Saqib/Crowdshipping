@@ -89,9 +89,11 @@ public class TrajGraphNode/* implements Comparable<TrajGraphNode>*/{
     public int getStopId() {
         return stopId;
     }
-    
-    
-    
+
+    public void setTimeInSec(long timeInSec) {
+        this.timeInSec = timeInSec;
+    }
+        
     /*
     @Override
     public int compareTo(TrajGraphNode nodeForComparison) {
@@ -106,7 +108,8 @@ public class TrajGraphNode/* implements Comparable<TrajGraphNode>*/{
     @Override
     public int hashCode() {
         // using the following members in hashing should suffice
-        int hash = Objects.hash(timeInSec, stopId, trajId);
+        //int hash = Objects.hash(timeInSec, stopId, trajId);
+        int hash = Objects.hash(stopId, trajId);
         return hash;
     }
 
@@ -128,9 +131,12 @@ public class TrajGraphNode/* implements Comparable<TrajGraphNode>*/{
         if (this.lonKey != other.lonKey) {
             return false;
         }
+        // may have to uncomment out the following comparison if we want to distinguish between nodes temporally too
+        /*
         if (this.timeInSec != other.timeInSec) {
             return false;
         }
+        */
         if (this.isKeeper != other.isKeeper) {
             return false;
         }
@@ -141,6 +147,11 @@ public class TrajGraphNode/* implements Comparable<TrajGraphNode>*/{
             return false;
         }
         return true;
+    }
+
+    @Override
+    public String toString() {
+        return "TrajGraphNode{" + "timeInSec=" + timeInSec + ", stopId=" + stopId + ", trajId=" + trajId + '}';
     }
 
 }

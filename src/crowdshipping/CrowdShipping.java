@@ -10,11 +10,16 @@ import java.io.IOException;
 import db.TrajStorage;
 
 import ds.qtrajtree.TQIndex;
+import ds.trajectory.TrajPoint;
+import ds.trajectory.Trajectory;
 import io.real.TrajProcessor;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.TreeMap;
 import query.PacketDeliveryQuery;
 import query.PacketRequest;
 import query.service.DistanceConverter;
@@ -30,7 +35,7 @@ public class CrowdShipping {
         String stopFile1Path = "../Data/Myki/my_stop_locations.txt";
         String stopFile2Path = "../Data/Myki/stop_locations.txt";
         
-        int keeperPercentage = 25;
+        int keeperPercentage = 50;
         
         TrajProcessor trajProcessor = new TrajProcessor();
         //System.out.println(System.getProperty("user.dir"));
@@ -42,14 +47,14 @@ public class CrowdShipping {
         //trajProcessor.printSummary();
         trajProcessor.excludeWeekendUserIds();
         
-        //trajProcessor.useNTrajsAsDataSet(50);   // for testing rtree leaves traversal order
-        trajProcessor.useNTrajsAsDataSet(250000);   // 550000
+        //trajProcessor.useNTrajsAsDataSet(50);     // for testing rtree leaves traversal order
+        trajProcessor.useNTrajsAsDataSet(550000);   // 250000
         
         trajProcessor.normalizeTrajectories();
         trajProcessor.printSummary();
         //trajProcessor.printTrajs(5);
         //trajProcessor.printNormalizedTrajs(5);
-        //trajProcessor.printInfo();
+        trajProcessor.printInfo();
         //System.exit(0);
         // create an object of TrajStorage to imitate database functionalities
         TrajStorage trajStorage = new TrajStorage(trajProcessor.getTrajIdToNormalizedTrajMap(),trajProcessor.getTrajIdToTrajMap());
@@ -113,7 +118,7 @@ public class CrowdShipping {
         */
         trajProcessor.normalizeStops();
         
-        quadTrajTree.indexStoppages(trajProcessor.getNormalizedKeeperMap());
+        quadTrajTree.indexStoppages(trajProcessor.getNormalizedStoppageMap());
         
         trajProcessor.useNPercentStopsAsKeepers(keeperPercentage);
         
@@ -129,6 +134,7 @@ public class CrowdShipping {
         double lonProximity = distanceConverter.getLonProximity(spatialProximity, proximityUnit);
         
         System.out.println(latProximity + " and " + lonProximity);
+        /*
         // merge stops in 0.01m spatial range into a single trajgraph node
         double latClusterRange = 0.01;
         double lonClusterRange = 0.01;
@@ -139,7 +145,7 @@ public class CrowdShipping {
         latClusterRange = latProximity/spatialProximity*clusterRangeInMeters;
         lonClusterRange = lonProximity/spatialProximity*clusterRangeInMeters;
         System.out.println("cluster range in meter " + clusterRangeInMeters + " = " + latClusterRange + " lat cluster range, " + lonClusterRange + " lon cluster range");
-
+        */
         long temporalProximity = 15;    // in minutes, may be anything around 5 to 240 for example
         temporalProximity *= 60;        // in seconds
         
@@ -241,31 +247,100 @@ public class CrowdShipping {
         }
         System.out.println("# of Trajpoints among stoppages = " + amongStops + ", out of stoppages = " + outOfStops);
         */
+        // stopwise and timewise trajectory point distribution
+        /*
+        HashMap <Integer, Integer> stopWiseTrajs = new HashMap<>();
+        HashMap <Integer, Integer> timeHourWiseTrajs = new HashMap<>();
+        HashMap <Integer, Integer> timeMinuteWiseTrajs = new HashMap<>();
+        for (Trajectory trajectory : trajProcessor.getTrajIdToTrajMap().values()){
+            for (TrajPoint trajPoint : trajectory.getPointList()){
+                int stopId = trajPoint.getStoppage().getStopId();
+                if (!stopWiseTrajs.containsKey(stopId)){
+                    stopWiseTrajs.put(stopId, 0);
+                }
+                stopWiseTrajs.put(stopId, stopWiseTrajs.get(stopId)+1);
+                
+                int timeHourId = (int)(trajPoint.getTimeInSec() - trajProcessor.getMinTimeInSec())/3600;
+                if (!timeHourWiseTrajs.containsKey(timeHourId)){
+                    timeHourWiseTrajs.put(timeHourId, 0);
+                }
+                timeHourWiseTrajs.put(timeHourId, timeHourWiseTrajs.get(timeHourId)+1);
+                
+                int timeMinuteId = (int)(trajPoint.getTimeInSec() - trajProcessor.getMinTimeInSec())/60;
+                if (!timeMinuteWiseTrajs.containsKey(timeMinuteId)){
+                    timeMinuteWiseTrajs.put(timeMinuteId, 0);
+                }
+                timeMinuteWiseTrajs.put(timeMinuteId, timeMinuteWiseTrajs.get(timeMinuteId)+1);
+            }
+        }
+        System.out.println("# of Stops having traj points = " + stopWiseTrajs.size());
+        System.out.println("Stop Id\tCount");
+        for (HashMap.Entry<Integer, Integer> entry : stopWiseTrajs.entrySet()){
+            int stopId = entry.getKey();
+            int count = entry.getValue();
+            System.out.println(stopId + "\t" + count);
+        }
         
+        System.out.println("# of Times (hours) having traj points = " + timeHourWiseTrajs.size());
+        System.out.println("Hour Id\tCount");
+        for (HashMap.Entry<Integer, Integer> entry : timeHourWiseTrajs.entrySet()){
+            int timeHourId = entry.getKey();
+            int count = entry.getValue();
+            System.out.println(timeHourId + "\t" + count);
+        }
+        
+        System.out.println("# of Times (minutes) having traj points = " + timeMinuteWiseTrajs.size());
+        System.out.println("Minute Id\tCount");
+        for (HashMap.Entry<Integer, Integer> entry : timeMinuteWiseTrajs.entrySet()){
+            int timeMinuteId = entry.getKey();
+            int count = entry.getValue();
+            System.out.println(timeMinuteId + "\t" + count);
+        }
+        */
+        /*
+        HashMap <Integer, HashMap<Integer, Integer>> stopWiseHourlyTrajs = new HashMap<>();
+        for (Trajectory trajectory : trajProcessor.getTrajIdToTrajMap().values()){
+            for (TrajPoint trajPoint : trajectory.getPointList()){
+                int stopId = trajPoint.getStoppage().getStopId();
+                if (!stopWiseHourlyTrajs.containsKey(stopId)){
+                    stopWiseHourlyTrajs.put(stopId, new HashMap<>());
+                }
+                int timeHourId = (int)(trajPoint.getTimeInSec() - trajProcessor.getMinTimeInSec())/3600;
+                if (!stopWiseHourlyTrajs.get(stopId).containsKey(timeHourId)){
+                    stopWiseHourlyTrajs.get(stopId).put(timeHourId, 0);
+                }
+                stopWiseHourlyTrajs.get(stopId).put(timeHourId, stopWiseHourlyTrajs.get(stopId).get(timeHourId)+1);
+            }
+        }
+        System.out.println("# of (Stops, Hour) having traj points = " + stopWiseHourlyTrajs.size());
+        System.out.println("Stop Id\tHour Id\tCount");
+        for (HashMap.Entry<Integer, HashMap<Integer, Integer>> entry : stopWiseHourlyTrajs.entrySet()){
+            int stopId = entry.getKey();
+            for (HashMap.Entry<Integer, Integer> entry2 : entry.getValue().entrySet()){
+                int hourId = entry2.getKey();
+                int count = entry2.getValue();
+                System.out.println(stopId + "\t" + hourId + "\t" + count);
+            }
+        }
+        System.exit(0);
+        */
         // the following two variables are perhaps no longer required
         double pktDisByDetourCoeff = 2;
         double pktReqMinDisThreshold = detourDistanceThreshold*pktDisByDetourCoeff;
         
         // query can be generated from anywhere (i.e. any stop) not necessarily from a keeper
         // keeper is a subset of stoppages
-        PacketDeliveryQuery packetDeliveryQuery = new PacketDeliveryQuery(trajProcessor.getStoppageMap(), trajProcessor.getNormalizedStoppageMap(),
-                                                                        distanceConverter, pktReqMinDisThreshold, proximityUnit);
-        String pktSrcDestFilePath = "E:\\Education\\Academic\\BUET\\Educational\\MSc_BUET\\Thesis\\Experiments_Insights\\Src_Dest_BL_Successful.txt";
-        BufferedReader br = null;
-        String line = new String();
-        br = new BufferedReader(new FileReader(pktSrcDestFilePath));
-        br.readLine();
+        PacketDeliveryQuery packetDeliveryQuery = new PacketDeliveryQuery(trajProcessor.getStoppageMap(), trajProcessor.getNormalizedStoppageMap(), distanceConverter,
+                                                                        pktReqMinDisThreshold, proximityUnit, trajProcessor.getMinTimeInSec(), trajProcessor.getMaxTimeInSec());
+        //String pktSrcDestFilePath = "E:\\Education\\Academic\\BUET\\Educational\\MSc_BUET\\Thesis\\Experiments_Insights\\Src_Dest_BL_Successful.txt";
+        
         /*
         System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tCost (file)\tisDelivered\tCost (hop)\tCost (dis)\tA* Cost (dis)\t"
                         + "isDelivered_joined\tCost_joined (hop)\tCost_joined (dis)\tA* Cost_joined (dis)");
         */
         
-        System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tisDelivered\tA* Cost (dis)\tA* Time (sec)\tA* Trajs I/O\t"
-                        + "isDelivered_joined\tA* Cost_joined (dis)\tA* Time_joined (sec)\tA* Trajs_joined I/O\tisDelivered_joined_A*_hop\tA* Cost Hop_joined\t"
-                        + "isDelivered_baseline\tBaseline Cost (dis)\tBaseline Time (sec)\tBaseline I/O\tisDelivered_joined_BL_hop\tBL_Cost_Hop_joined\t");
                         //+ "isDelivered_all-traj\tAll-traj Cost (dis)\tAll-traj Time (sec)\tAll-traj Trajs(I/O)\tisDelivered_joined_AT_hop\tAT_Cost_Hop_joined\t");
-        
-        int noOfPktsForDelivery = 10;
+        int noOfPktsForDelivery = 500;
         // generates some random src, dest ids and puts them in lists
         // packetDeliveryQuery.populateRandomSrcDestIds(noOfPktsForDelivery);
         
@@ -273,14 +348,48 @@ public class CrowdShipping {
         int bucketId = 2;   // 0 : <= 2.5km, 1 : <= 5km, 2: <= 10km, 3: <= 20km, 4: <= 40km, 5: > 40km
         //packetDeliveryQuery.groupDistanceWiseSrcDest();
         //packetDeliveryQuery.populateRandomBucketedPackets(noOfPktsForDelivery, bucketId);
-        packetDeliveryQuery.populateCertainDistanceSrcDestIds(noOfPktsForDelivery, bucketId);
+        //packetDeliveryQuery.populateCertainDistanceSrcDestIds(noOfPktsForDelivery, bucketId);
+        // time info in packet (experiment with it
+        int timeBucketId = 2;    // 0: <= 30 min to 1 hour, 1: 1 to 2 hours, 2: 2 to 4 hours, 3: 4 to 8 hours, 4: 8 hours to 1 day, 5: 1 to 3 days
         
+        // dataset and time range i.e. hour/minute specific processing
+        TreeMap<Integer, ArrayList<Integer>> timeHourIdWiseStops = new TreeMap<>();
+        TreeMap<Integer, ArrayList<Integer>> stopWiseHourId = new TreeMap<>();
+        int maxHourId = Integer.MIN_VALUE;
+        String pktSrcDestFilePath = "E:\\Education\\Academic\\BUET\\Educational\\MSc_BUET\\Thesis\\Experiments_Insights\\550k_Hotspots_TS_25%.txt";
+        BufferedReader br = null;
+        String line = new String();
+        br = new BufferedReader(new FileReader(pktSrcDestFilePath));
+        while ((line = br.readLine()) != null) {
+            String[] data = line.split("\t");
+            int stopId = Integer.parseInt(data[0]);
+            int timeHourId = Integer.parseInt(data[1]);
+            if (!timeHourIdWiseStops.containsKey(timeHourId)){
+                timeHourIdWiseStops.put(timeHourId, new ArrayList<>());
+            }
+            timeHourIdWiseStops.get(timeHourId).add(stopId);
+            if (!stopWiseHourId.containsKey(stopId)){
+                stopWiseHourId.put(stopId, new ArrayList<>());
+            }
+            stopWiseHourId.get(stopId).add(timeHourId);
+            maxHourId = Math.max(maxHourId, timeHourId);
+        }
+        //System.out.println("\nHotspot : " + timeHourIdWiseStops.size() + " time buckets (hour), " + stopWiseHourId.size() + " stops");
+        //packetDeliveryQuery.populateCertainDistTimeSrcDestIds(noOfPktsForDelivery, bucketId, timeBucketId);
+        packetDeliveryQuery.populatePktsFromHotspot(noOfPktsForDelivery, bucketId, timeBucketId, timeHourIdWiseStops, maxHourId);
+        
+        
+        System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tSrc time(sec)\tDest time(sec)\tDuration(sec)\tisDelivered\tA* Cost (dis)\tA* Time (sec)\tA* Trajs I/O\tA* Duration(sec)\t"
+                    + "isDelivered_joined\tA* Cost_joined (dis)\tA* Time_joined (sec)\tA* Trajs_joined I/O\tA* Duration_joined(sec)\tisDelivered_joined_A*_hop\tA* Cost Hop_joined\t"
+                    + "isDelivered_baseline\tBaseline Cost (dis)\tBaseline Time (sec)\tBaseline I/O\tBaseline Duration_joined(sec)\tisDelivered_joined_BL_hop\tBL_Cost_Hop_joined\t");
         for (int i=0; i<noOfPktsForDelivery; i++){
             // checks each stop probabilistically
             // packetDeliveryQuery.generatePktDeliveryReq();
             
             // picks from the lists of random src, dest stop ids
-            packetDeliveryQuery.generatePktDeliveryReq(i);
+            //packetDeliveryQuery.generatePktDeliveryReq(i);
+            // hotspot based packet request generation
+            packetDeliveryQuery.generateSTHotspotPktDeliveryReq(i);
         
         /*
         while ((line = br.readLine()) != null) {
@@ -293,33 +402,36 @@ public class CrowdShipping {
             
             PacketRequest pktReq = packetDeliveryQuery.getPacketRequest();
             //System.out.println("\nGenerated Packet Request:\n" + packetDeliveryQuery);
-            
-            System.out.print("\n" + packetDeliveryQuery.getPacketRequest().getSrcId() + "\t" + packetDeliveryQuery.getPacketRequest().getDestId()
-                            + "\t" + packetDeliveryQuery.getDistance() + "\t" /*+ hopCountCost + "\t"*/);
-            //facilityGraph = quadTrajTree.makeUnionSet(facilityGraph);
-            //quadTrajTree.draw();
+            for (int temporalProcess=0; temporalProcess<4; temporalProcess++){
+                System.out.print("\n" + packetDeliveryQuery.getPacketRequest().getSrcId() + "\t" + packetDeliveryQuery.getPacketRequest().getDestId()
+                                + "\t" + packetDeliveryQuery.getDistance() + "\t" + packetDeliveryQuery.getPacketRequest().getSrcTimeInSec() + "\t" +
+                                    packetDeliveryQuery.getPacketRequest().getDestTimeInSec() + "\t" + packetDeliveryQuery.getDurationInHourMinute() + "\t");
+                //facilityGraph = quadTrajTree.makeUnionSet(facilityGraph);
+                //quadTrajTree.draw();
 
-            /*
-            int tot = 0;
-            int id = 0;
-            for (Entry<Node, Integer> entry : quadTrajTree.nodeToAllTrajsCount.entrySet()) {
-                //System.out.println(entry.getKey() + " " + entry.getValue());
-                tot += entry.getValue();
-            }
-            System.out.println(tot); */
-            /*
-            for (int srcId = 1; srcId <=11; srcId++){
-                for (int destId = 1; destId <=11; destId++){
-                    pktReq.setSrcId(srcId); //11
-                    pktReq.setDestId(destId);//6
-                    boolean result = TestServiceQuery.run(trajStorage, quadTrajTree, pktReq, latProximity, lonProximity, temporalProximity);
-                    System.exit(0);
+                /*
+                int tot = 0;
+                int id = 0;
+                for (Entry<Node, Integer> entry : quadTrajTree.nodeToAllTrajsCount.entrySet()) {
+                    //System.out.println(entry.getKey() + " " + entry.getValue());
+                    tot += entry.getValue();
                 }
+                System.out.println(tot); */
+                /*
+                for (int srcId = 1; srcId <=11; srcId++){
+                    for (int destId = 1; destId <=11; destId++){
+                        pktReq.setSrcId(srcId); //11
+                        pktReq.setDestId(destId);//6
+                        boolean result = TestServiceQuery.run(trajStorage, quadTrajTree, pktReq, latProximity, lonProximity, temporalProximity);
+                        System.exit(0);
+                    }
+                }
+                */
+                // latProximity and lonProximity are used only in summary node retrieval (or range query in baseline)
+                boolean validSolution = TestServiceQuery.run(trajStorage, quadTrajTree, packetDeliveryQuery, latProximity, lonProximity, temporalProximity, distanceConverter,
+                                                            trajProcessor, detourDistanceThreshold, trajProcessor.getNormalizedKeeperSet(), temporalProcess);
             }
-            */
-            // latProximity and lonProximity are used only in summary node retrieval (or range query in baseline)
-            boolean validSolution = TestServiceQuery.run(trajStorage, quadTrajTree, packetDeliveryQuery, latProximity, lonProximity, temporalProximity,
-                                                        distanceConverter, trajProcessor, detourDistanceThreshold, trajProcessor.getNormalizedKeeperSet());
+            System.out.println("");
             /*
             if (!validSolution) i--;
             else{
@@ -328,7 +440,6 @@ public class CrowdShipping {
             */
             //System.exit(0);
         }
-        System.out.println("");
         
         //TestServiceQuery.run(quadTrajTree, facilityGraph);
         //TestBestKQuery.run(quadTrajTree, facilityGraph);

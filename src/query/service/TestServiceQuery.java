@@ -11,7 +11,7 @@ import query.PacketDeliveryQuery;
 public class TestServiceQuery {
 
     public static boolean run(TrajStorage trajStorage, TQIndex quadTrajTree, PacketDeliveryQuery pktRequest, double latDisThreshold, double lonDisThreshold, long temporalDisThreshold,
-                            DistanceConverter distanceConverter, TrajProcessor trajProcessor, double detourDistanceThreshold, HashSet<Integer> normalizedKeepers) {
+                            DistanceConverter distanceConverter, TrajProcessor trajProcessor, double detourDistanceThreshold, HashSet<Integer> normalizedKeepers, int temporalProcess){
 
         //int numberOfRuns = 10;
         //double naiveTime = 0, zOrderTime = 0;
@@ -38,10 +38,28 @@ public class TestServiceQuery {
             */
             //System.out.println("\n------------------------------------------------------");
             ArrayList <TrajGraphNode> bestDeliverersModified;
-            bestDeliverersModified = processQuery.deliverPacketModified(pktRequest);
-            bestDeliverersModified = processQuery.deliverPacketModifiedWithJoin(pktRequest);
-            
-            bestDeliverersModified = processQuery.deliverPacketBaselineWithJoin(pktRequest);
+            /*
+            if (!temporal){
+                bestDeliverersModified = processQuery.deliverPacketModified(pktRequest);
+                bestDeliverersModified = processQuery.deliverPacketModifiedWithJoin(pktRequest);
+
+                bestDeliverersModified = processQuery.deliverPacketBaselineWithJoin(pktRequest);
+            }
+            else{
+            */
+                // go the the following methods and update the call to the appropriate A* method after testing is done
+                bestDeliverersModified = processQuery.deliverPacketModifiedWithDuration(pktRequest, temporalProcess);
+                bestDeliverersModified = processQuery.deliverPacketModifiedWithJoinWithDuration(pktRequest, temporalProcess);
+
+                bestDeliverersModified = processQuery.deliverPacketBaselineWithJoinWithDuration(pktRequest, temporalProcess);
+
+                /*
+                bestDeliverersModified = processQuery.deliverPacketModifiedWithTimeStamp(pktRequest);
+                bestDeliverersModified = processQuery.deliverPacketModifiedWithJoinWithTimeStamp(pktRequest);
+
+                bestDeliverersModified = processQuery.deliverPacketBaselineWithJoinWithTimeStamp(pktRequest);
+                */
+            //}
             //bestDeliverersModified = processQuery.deliverPacketAllTrajWithJoin(pktRequest);
             /*
             System.out.println("Best deliverers (modified) size = " + bestDeliverersModified.size());

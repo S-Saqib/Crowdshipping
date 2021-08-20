@@ -99,6 +99,26 @@ public class PacketRequest {
         this.normDestLon = normDestLon;
     }
 
+    public void setSrcTimeInSec(long srcTimeInSec) {
+        this.srcTimeInSec = srcTimeInSec;
+    }
+
+    public void setDestTimeInSec(long destTimeInSec) {
+        this.destTimeInSec = destTimeInSec;
+    }
+    
+    public long getDurationInSeconds(){
+        return (this.destTimeInSec-this.srcTimeInSec);
+    }
+
+    public long getSrcTimeInSec() {
+        return srcTimeInSec;
+    }
+
+    public long getDestTimeInSec() {
+        return destTimeInSec;
+    }
+    
     @Override
     public String toString() {
         String pktReqStr = "";
