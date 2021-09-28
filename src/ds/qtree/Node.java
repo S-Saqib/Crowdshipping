@@ -21,6 +21,7 @@ public class Node {
     private Node se;
     private long zCode;
     private int depth;
+    private ArrayList<Long> baselineBlockIds;
     private HashMap<Integer, HashSet<Object>> timeBucketToDiskBlockIdMap;
     
 
@@ -46,6 +47,7 @@ public class Node {
         this.nodeCapacity = 32;
         this.timeBucketToDiskBlockIdMap = new HashMap<Integer, HashSet<Object>>();
         this.zCode = -1;
+        this.baselineBlockIds = new ArrayList<>();
     }
     
     // added to support summary index
@@ -61,6 +63,7 @@ public class Node {
         this.nodeCapacity = nodeCapacity;
         this.timeBucketToDiskBlockIdMap = new HashMap<Integer, HashSet<Object>>();
         this.zCode = -1;
+        this.baselineBlockIds = new ArrayList<>();
     }
 
     public double getX() {
@@ -205,6 +208,14 @@ public class Node {
 
     public HashMap<Integer, HashSet<Object>> getTimeBucketToDiskBlockIdMap() {
         return timeBucketToDiskBlockIdMap;
+    }
+    
+    public void addBaselineBlockId(long blBlockId){
+        baselineBlockIds.add(blBlockId);
+    }
+
+    public ArrayList<Long> getBaselineBlockIds() {
+        return baselineBlockIds;
     }
 
     @Override

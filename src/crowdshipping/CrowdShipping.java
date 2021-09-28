@@ -35,6 +35,7 @@ public class CrowdShipping {
         String stopFile1Path = "../Data/Myki/my_stop_locations.txt";
         String stopFile2Path = "../Data/Myki/stop_locations.txt";
         
+        /// Param : Keeper Percentage : 10, 25, 50 (default), 100
         int keeperPercentage = 50;
         
         TrajProcessor trajProcessor = new TrajProcessor();
@@ -48,7 +49,9 @@ public class CrowdShipping {
         trajProcessor.excludeWeekendUserIds();
         
         //trajProcessor.useNTrajsAsDataSet(50);     // for testing rtree leaves traversal order
-        trajProcessor.useNTrajsAsDataSet(550000);   // 250000
+        /// Param : Traj Count 100k, 250k, 400k, 550k (default)
+        int trajCount = 550000;
+        trajProcessor.useNTrajsAsDataSet(trajCount);
         
         trajProcessor.normalizeTrajectories();
         trajProcessor.printSummary();
@@ -125,6 +128,7 @@ public class CrowdShipping {
         // the following proximity, distance etc. are calculated in normalized lat, lon space
         double spatialProximity;
         // need to consider keepers
+        /// Param : Max Detour in KM 500, 1000 (default), 2000, 4000
         double detourDistanceThreshold = 1000; // in meters
         spatialProximity = detourDistanceThreshold;
         ///
@@ -340,7 +344,7 @@ public class CrowdShipping {
         */
         
                         //+ "isDelivered_all-traj\tAll-traj Cost (dis)\tAll-traj Time (sec)\tAll-traj Trajs(I/O)\tisDelivered_joined_AT_hop\tAT_Cost_Hop_joined\t");
-        int noOfPktsForDelivery = 500;
+        int noOfPktsForDelivery = 100;
         // generates some random src, dest ids and puts them in lists
         // packetDeliveryQuery.populateRandomSrcDestIds(noOfPktsForDelivery);
         
@@ -350,6 +354,7 @@ public class CrowdShipping {
         //packetDeliveryQuery.populateRandomBucketedPackets(noOfPktsForDelivery, bucketId);
         //packetDeliveryQuery.populateCertainDistanceSrcDestIds(noOfPktsForDelivery, bucketId);
         // time info in packet (experiment with it
+        /// Param : Pkt Duration (Hour) 0: 0.5-1, 1: 1-2, 2: 2-4 (default), 3: 4-8, 4: 8-24, 5: 24-72
         int timeBucketId = 2;    // 0: <= 30 min to 1 hour, 1: 1 to 2 hours, 2: 2 to 4 hours, 3: 4 to 8 hours, 4: 8 hours to 1 day, 5: 1 to 3 days
         
         // dataset and time range i.e. hour/minute specific processing
@@ -375,13 +380,61 @@ public class CrowdShipping {
             maxHourId = Math.max(maxHourId, timeHourId);
         }
         //System.out.println("\nHotspot : " + timeHourIdWiseStops.size() + " time buckets (hour), " + stopWiseHourId.size() + " stops");
-        //packetDeliveryQuery.populateCertainDistTimeSrcDestIds(noOfPktsForDelivery, bucketId, timeBucketId);
+        // Random packet generation
+        // packetDeliveryQuery.populateCertainDistTimeSrcDestIds(noOfPktsForDelivery, bucketId, timeBucketId);
+        // Hotspot based packet generation
         packetDeliveryQuery.populatePktsFromHotspot(noOfPktsForDelivery, bucketId, timeBucketId, timeHourIdWiseStops, maxHourId);
         
-        
+        /*
         System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tSrc time(sec)\tDest time(sec)\tDuration(sec)\tisDelivered\tA* Cost (dis)\tA* Time (sec)\tA* Trajs I/O\tA* Duration(sec)\t"
                     + "isDelivered_joined\tA* Cost_joined (dis)\tA* Time_joined (sec)\tA* Trajs_joined I/O\tA* Duration_joined(sec)\tisDelivered_joined_A*_hop\tA* Cost Hop_joined\t"
                     + "isDelivered_baseline\tBaseline Cost (dis)\tBaseline Time (sec)\tBaseline I/O\tBaseline Duration_joined(sec)\tisDelivered_joined_BL_hop\tBL_Cost_Hop_joined\t");
+        */
+        
+        System.out.println("\nParameters:");
+        //System.out.print("Traj_Count\t" + trajCount + "\tKeeper %\t" + keeperPercentage + "\tPkt_Duration(H)_Id\t" + timeBucketId + "\tMax_Detour(m)\t" + detourDistanceThreshold);
+        System.out.print("Traj_Count\t" + trajCount + "\tKeeper %\t" + keeperPercentage + "\tPkt_Dis_Id(km)" + bucketId + "\tPkt_Duration(H)_Id\t" + timeBucketId + "\tMax_Detour(m)\t" + detourDistanceThreshold);
+        System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tSrc time(sec)\tDest time(sec)\tDuration(sec)\tDuration(H:M)\t"
+                    + "SQ_S Delivered\tSQ_S Cost(dis)\tSQ_S Duration(sec)\tSQ_S Runtime(sec)\tSQ_S I/O\t"
+                    + "BL_S Delivered\tBL_S Cost(dis)\tBL_S Duration(sec)\tBL_S Runtime(sec)\tBL_S I/O\t"
+                    + "SQ_ST Delivered\tSQ_ST Cost(dis)\tSQ_ST Duration(sec)\tSQ_ST Runtime(sec)\tSQ_ST I/O\t"
+                    + "BL_ST Delivered\tBL_ST Cost(dis)\tBL_ST Duration(sec)\tBL_ST Runtime(sec)\tBL_ST I/O\t"
+                    + "SQ_ST_t-QG Delivered\tSQ_ST_t-QG Cost(dis)\tSQ_ST_t-QG Duration(sec)\tSQ_ST_t-QG Runtime(sec)\tSQ_ST_t-QG I/O\t"
+                    + "BL_ST_t-QG Delivered\tBL_ST_t-QG Cost(dis)\tBL_ST_t-QG Duration(sec)\tBL_ST_t-QG Runtime(sec)\tBL_ST_t-QG I/O\t");
+        
+        // Experiment
+        for (int i=0; i<noOfPktsForDelivery; i++){
+            // checks each stop probabilistically
+            // packetDeliveryQuery.generatePktDeliveryReq();
+            
+            // picks from the lists of random src, dest stop ids
+            //packetDeliveryQuery.generatePktDeliveryReq(i);
+            // hotspot based packet request generation
+            packetDeliveryQuery.generateSTHotspotPktDeliveryReq(i);
+            PacketRequest pktReq = packetDeliveryQuery.getPacketRequest();
+            System.out.print("\n" + packetDeliveryQuery.getPacketRequest().getSrcId() + "\t" + packetDeliveryQuery.getPacketRequest().getDestId() + "\t" +
+                packetDeliveryQuery.getDistance() + "\t" + packetDeliveryQuery.getPacketRequest().getSrcTimeInSec() + "\t" + packetDeliveryQuery.getPacketRequest().getDestTimeInSec()
+                + "\t" + packetDeliveryQuery.getDurationInSec() + "\t" + packetDeliveryQuery.getDurationInHourMinute() + "\t");
+            //System.out.println("\nGenerated Packet Request:\n" + packetDeliveryQuery);
+            // temporalProcess: 0 - Only spatial traj retrieval (QG timebucket ignored), spatial trajgraph, spatial A* search (no temporal processing)
+            // temporalProcess: 1 - Only spatial traj retrieval (QG timebucket ignored), temporal directional trajgraph, temporal processing in A* search
+            // temporalProcess: 2 - Spatio-temporal traj retrieval (QG timebucket considered), temporal directional trajgraph, temporal processing in A* search
+            // SQ time bitmap not implemented, if done, can perhaps be put under temporalProcess 3
+            for (int temporalProcess=0; temporalProcess<3; temporalProcess++){
+                // latProximity and lonProximity are used only in summary node retrieval (or range query in baseline)
+                boolean validSolution = TestServiceQuery.run(trajStorage, quadTrajTree, packetDeliveryQuery, latProximity, lonProximity, temporalProximity, distanceConverter,
+                                                            trajProcessor, detourDistanceThreshold, trajProcessor.getNormalizedKeeperSet(), temporalProcess);
+            }
+            /*
+            System.out.println("");
+            if (!validSolution) i--;
+            else{}
+            */
+        }
+        System.out.println("");
+        System.exit(0);
+        // End of experiment
+        
         for (int i=0; i<noOfPktsForDelivery; i++){
             // checks each stop probabilistically
             // packetDeliveryQuery.generatePktDeliveryReq();
@@ -402,7 +455,11 @@ public class CrowdShipping {
             
             PacketRequest pktReq = packetDeliveryQuery.getPacketRequest();
             //System.out.println("\nGenerated Packet Request:\n" + packetDeliveryQuery);
-            for (int temporalProcess=0; temporalProcess<4; temporalProcess++){
+            // temporalProcess: 0 - Only spatial traj retrieval (QG timebucket ignored), spatial trajgraph, spatial A* search (no temporal processing)
+            // temporalProcess: 1 - Only spatial traj retrieval (QG timebucket ignored), temporal directional trajgraph, temporal processing in A* search
+            // temporalProcess: 2 - Spatio-temporal traj retrieval (QG timebucket considered), temporal directional trajgraph, temporal processing in A* search
+            // SQ time bitmap not implemented, if done, can perhaps be put under temporalProcess 3
+            for (int temporalProcess=0; temporalProcess<3; temporalProcess++){
                 System.out.print("\n" + packetDeliveryQuery.getPacketRequest().getSrcId() + "\t" + packetDeliveryQuery.getPacketRequest().getDestId()
                                 + "\t" + packetDeliveryQuery.getDistance() + "\t" + packetDeliveryQuery.getPacketRequest().getSrcTimeInSec() + "\t" +
                                     packetDeliveryQuery.getPacketRequest().getDestTimeInSec() + "\t" + packetDeliveryQuery.getDurationInHourMinute() + "\t");

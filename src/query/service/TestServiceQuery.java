@@ -48,10 +48,11 @@ public class TestServiceQuery {
             else{
             */
                 // go the the following methods and update the call to the appropriate A* method after testing is done
-                bestDeliverersModified = processQuery.deliverPacketModifiedWithDuration(pktRequest, temporalProcess);
-                bestDeliverersModified = processQuery.deliverPacketModifiedWithJoinWithDuration(pktRequest, temporalProcess);
-
-                bestDeliverersModified = processQuery.deliverPacketBaselineWithJoinWithDuration(pktRequest, temporalProcess);
+                //bestDeliverersModified = processQuery.deliverPacketModifiedWithDuration(pktRequest, temporalProcess);
+                //bestDeliverersModified = processQuery.deliverPacketModifiedWithJoinWithDuration(pktRequest, temporalProcess);
+                //bestDeliverersModified = processQuery.deliverPacketBaselineWithJoinWithDuration(pktRequest, temporalProcess);
+                bestDeliverersModified = processQuery.deliverSQ(pktRequest, temporalProcess);
+                bestDeliverersModified = processQuery.deliverBL(pktRequest, temporalProcess);
 
                 /*
                 bestDeliverersModified = processQuery.deliverPacketModifiedWithTimeStamp(pktRequest);

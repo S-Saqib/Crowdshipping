@@ -113,6 +113,8 @@ public class TQIndex {
         
         // assuming zCode starts from 0 (the second argument)
         quadTree.assignZCodesToLeaves(quadTree.getRootNode(), 0);
+        //Pair<Long, Integer> brPair = quadTree.assignBaselineBlockIdsToLeaves(quadTree.getRootNode(), 0L, 32); // assuming 32 trajs can be put in a disk block
+        //System.out.println("Max BL block id = " + brPair.getKey());
         quadTree.transformTrajectories(quadTree.getRootNode());
         // trajStorage.printTrajectories();
         // the following will be done when we have the disk block ids in trajStorage
@@ -132,7 +134,10 @@ public class TQIndex {
             addTrajectories(trajectories);
             trajectories = this.trajStorage.getNextChunkAsList();
         }
-        */        
+        */
+        
+        System.out.println("Max BL block id = " + quadTree.assignBaselineBlockIdToLeaves(trajStorage.getTransformedTrajDataAsList(), 32));
+        
         trajStorage.clearQNodeToPointListMap();
     }
     

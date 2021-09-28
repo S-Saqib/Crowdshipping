@@ -537,7 +537,7 @@ public class SummaryQuadTree {
             for (TransformedTrajPoint point : pointList){
                 int timeIndex = getTimeIndex(point.getTimeInSec());
                 if (timeIndex > 0){
-                    String trajId = summaryTraj.getAnonymizedId();
+                    String trajId = summaryTraj.getTrajId();
                     //Object diskBlockId = trajStorage.getDiskBlockIdByTrajId(trajId);
                     long nodeZCode = point.getqNodeIndex();
                     Node node = getqNodeIndexToNodeMap().get(nodeZCode);

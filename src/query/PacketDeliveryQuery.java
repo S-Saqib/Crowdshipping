@@ -149,7 +149,7 @@ public class PacketDeliveryQuery {
         int to = destStops.get(id);
         
         generatePktDeliveryReq(from, to);
-        //addTimeToGeneratedPkt();
+        addTimeToGeneratedPkt();
         //System.out.println("Packet generated : src time = " + pktReq.getSrcTimeInSec() + " , dest time = " + pktReq.getDestTimeInSec() + ", duration = " + pktReq.getDurationInSeconds());
     }
     
@@ -432,6 +432,10 @@ public class PacketDeliveryQuery {
         if (durationInSeconds%60L >= 30L) durationInMinutes++;
         String durationInHourMinute = durationInHours + "h " + durationInMinutes + "min";
         return durationInHourMinute;
+    }
+    
+    public long getDurationInSec(){
+        return pktReq.getDurationInSeconds();
     }
     
     public String getDistanceUnit(){

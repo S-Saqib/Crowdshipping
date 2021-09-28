@@ -10,26 +10,26 @@ public class TransformedTrajectory {
     private TreeSet<TransformedTrajPoint> transformedPointList;
     private Rectangle envelope;
     private long userId;
-    private String anonymizedId;
+    private String trajId;
     private String contactNo;
 
     public TransformedTrajectory() {
         transformedPointList = new TreeSet<TransformedTrajPoint>(new TransformedTrajPointComparator());
-        anonymizedId = new String();
+        trajId = new String();
         contactNo = null;
         userId = -1;
     }
     
     public TransformedTrajectory(String anonymizedId, long userId){
         transformedPointList = new TreeSet<TransformedTrajPoint>(new TransformedTrajPointComparator());
-        this.anonymizedId = anonymizedId;
+        this.trajId = anonymizedId;
         this.userId = userId;
         contactNo = null;
     }
     
     public TransformedTrajectory(TreeSet<TransformedTrajPoint> pointList) {
         this.transformedPointList = pointList;
-        anonymizedId = new String();
+        trajId = new String();
         contactNo = null;
         userId = -1;
     }
@@ -41,15 +41,15 @@ public class TransformedTrajectory {
     public TreeSet<TransformedTrajPoint> getTransformedPointList() {
         return this.transformedPointList;
     }
+
+    public String getTrajId() {
+        return trajId;
+    }
+
+    public void setTrajId(String trajId) {
+        this.trajId = trajId;
+    }
     
-    public String getAnonymizedId() {
-        return anonymizedId;
-    }
-
-    public void setAnonymizedId(String anonymizedId) {
-        this.anonymizedId = anonymizedId;
-    }
-
     public long getUserId() {
         return userId;
     }
@@ -101,7 +101,7 @@ public class TransformedTrajectory {
 
     @Override
     public String toString() {
-        String trajString = "(Transformed) Trajectory ID = " + userId + " , Anonymized ID = " + anonymizedId + " , Contact No. = " + contactNo + "\n";
+        String trajString = "(Transformed) Trajectory ID = " + userId + " , Anonymized ID = " + trajId + " , Contact No. = " + contactNo + "\n";
         trajString += transformedPointList.toString() + "\n";
         return trajString;
     }

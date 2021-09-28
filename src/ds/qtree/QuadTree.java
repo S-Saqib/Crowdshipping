@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import javafx.util.Pair;
 import javax.xml.ws.Response;
 
 /**
@@ -27,6 +30,7 @@ public class QuadTree {
     private TrajStorage trajStorage;
     private long minTimeInSec;
     private int timeWindowInSec;
+    private HashMap<Long, Node> qNodeIndexToNodeMap;
     
     /**
      * Constructs a new quad tree.
@@ -45,6 +49,7 @@ public class QuadTree {
         this.root_ = new Node(minX, minY, maxX - minX, maxY - minY, null, 0);
         this.minTimeInSec = minTimeInSec;
         this.timeWindowInSec = timeWindowInSec;
+        qNodeIndexToNodeMap = new HashMap<>();
     }
 
     /**
@@ -453,6 +458,7 @@ public class QuadTree {
         }
         if (node.getNodeType() == NodeType.LEAF){
             node.setZCode(zCode);
+            qNodeIndexToNodeMap.put(zCode, node);
             return zCode;
         }
         node.setZCode(-1);
@@ -461,6 +467,106 @@ public class QuadTree {
         zCode = assignZCodesToLeaves(node.getSw(), zCode) + 1;
         zCode = assignZCodesToLeaves(node.getSe(), zCode) + 1;
         return zCode;
+    }
+    
+    public Pair<Long, Integer> assignBaselineBlockIdsToLeaves(Node node, long blBlockId, int remaining){
+        if (node.getNodeType() == NodeType.EMPTY){
+            // just added for safety, should not reach here
+            return new Pair<>(blBlockId, remaining);
+        }
+        
+        if (node.getNodeType() == NodeType.LEAF){
+            int pointCount = node.getPointCount();
+            // allowing empty space in block to ensure better spatial locality
+            if ((remaining < 32) && ((pointCount%32 > remaining) || (pointCount%32==0))){
+            // if we have 32 spaces remaining, we do not need to move to a new block
+            // if we have more points for the last block than the remainin spaces, we should move to the next block
+            // if we have no points left for the last block, then we should move to the next block as current block has fewer than 32 spaces remaining
+                blBlockId++;
+                remaining=32;
+            }
+            while (pointCount > 0){
+                node.addBaselineBlockId(blBlockId);
+                if (pointCount >= remaining){
+                    pointCount -= remaining;
+                    // since at most 32 trajs per node
+                    remaining = 32;
+                    blBlockId++;
+                }
+                else {
+                    remaining -= pointCount;
+                    break;
+                }
+            }
+            return new Pair<>(blBlockId, remaining);
+        }
+        
+        Pair<Long,Integer> brPair = assignBaselineBlockIdsToLeaves(node.getNw(), blBlockId, remaining);
+        blBlockId = brPair.getKey();
+        remaining = brPair.getValue();
+        
+        brPair = assignBaselineBlockIdsToLeaves(node.getNe(), blBlockId, remaining);
+        blBlockId = brPair.getKey();
+        remaining = brPair.getValue();
+        
+        brPair = assignBaselineBlockIdsToLeaves(node.getSw(), blBlockId, remaining);
+        blBlockId = brPair.getKey();
+        remaining = brPair.getValue();
+        
+        brPair = assignBaselineBlockIdsToLeaves(node.getSe(), blBlockId, remaining);
+        blBlockId = brPair.getKey();
+        remaining = brPair.getValue();
+        
+        return brPair;
+    }
+    
+    public long assignBaselineBlockIdToLeaves(ArrayList<TransformedTrajectory> transformedTrajs, int trajCapacityOfBlocks){    // by traversing all trajs
+        TreeMap<Long, Integer> diskBlockAccessMap = new TreeMap<>();
+        for (TransformedTrajectory traj : transformedTrajs){
+            String trajId=  traj.getTrajId();
+            // assumption : a trajectory is stored in a disk block enumerated by the z-id of its first point
+            long quadtreeBasedDiskBlockId = trajStorage.getTransformedTrajectoryById(trajId).getTransformedPointList().first().getqNodeIndex();
+            // assumption : at most 32 trajs in each block as node capacity is 32 points (each traj size around 128B, block size 4k => trajs per block = 32)
+            if (!diskBlockAccessMap.containsKey(quadtreeBasedDiskBlockId)){
+                diskBlockAccessMap.put(quadtreeBasedDiskBlockId, 0);
+            }
+            diskBlockAccessMap.put(quadtreeBasedDiskBlockId, diskBlockAccessMap.get(quadtreeBasedDiskBlockId)+1);
+        }
+        
+        long blBlockId = 0L;
+        int remaining = trajCapacityOfBlocks;
+        
+        for (Map.Entry<Long, Integer> entry : diskBlockAccessMap.entrySet()){
+            long nodeId = entry.getKey();
+            int trajCount = entry.getValue();
+            Node node = qNodeIndexToNodeMap.get(nodeId);
+            
+            /*
+            // allowing empty space in block to ensure better spatial locality
+            if ((remaining < 32) && ((trajCount%32 > remaining) || (trajCount%32==0))){
+            // if we have 32 spaces remaining, we do not need to move to a new block
+            // if we have more trajs for the last block than the remainin spaces, we should move to the next block
+            // if we have no trajs left for the last block, then we should move to the next block as current block has fewer than 32 spaces remaining
+                blBlockId++;
+                remaining=32;
+            }
+            */
+            
+            while (trajCount > 0){
+                node.addBaselineBlockId(blBlockId);
+                if (trajCount >= remaining){
+                    trajCount -= remaining;
+                    // since at most 32 trajs per node
+                    remaining = trajCapacityOfBlocks;
+                    blBlockId++;
+                }
+                else {
+                    remaining -= trajCount;
+                    trajCount = 0;
+                }
+            }
+        }
+        return blBlockId;
     }
     
     // saves transformed trajectories in trajStorage, the spatio-temporal transformation works on their points
@@ -511,5 +617,9 @@ public class QuadTree {
         tagDiskBlockIdsToNodes(node.getSw());
         tagDiskBlockIdsToNodes(node.getSe());
     }
-        
+
+    public HashMap<Long, Node> getqNodeIndexToNodeMap() {
+        return qNodeIndexToNodeMap;
+    }
+    
 }
