@@ -19,7 +19,9 @@ import java.io.FileReader;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.TreeMap;
+import javafx.util.Pair;
 import query.PacketDeliveryQuery;
 import query.PacketRequest;
 import query.service.DistanceConverter;
@@ -31,9 +33,20 @@ public class CrowdShipping {
 
     public static void main(String[] args) throws IOException, FileNotFoundException, ParseException {
 
+        /*
         String trajFilePath = "../Data/Myki/2018_June_Last_Week_Trips_All_Days.txt";
         String stopFile1Path = "../Data/Myki/my_stop_locations.txt";
         String stopFile2Path = "../Data/Myki/stop_locations.txt";
+        */
+        
+        String routeFilePath = "E:\\Education\\Academic\\BUET\\Educational\\Departmental\\4-2\\Thesis\\Data\\New York\\Facility\\NYC_transport\\NYC_routes.txt";
+        String stoppageFilePath = "E:\\Education\\Academic\\BUET\\Educational\\Departmental\\4-2\\Thesis\\Data\\New York\\Facility\\NYC_transport\\NYC_stopid.txt";
+        String userTrajectoryFilePath = "E:\\Education\\Academic\\BUET\\Educational\\Departmental\\4-2\\Thesis\\Data\\New York\\Taxi\\user_traj_for_crowdshipping.csv";
+        
+        if (routeFilePath == null || stoppageFilePath == null || userTrajectoryFilePath == null){
+            System.out.println("File not found");
+            System.exit(0);
+        }
         
         /// Param : Keeper Percentage : 10, 25, 50 (default), 100
         int keeperPercentage = 50;
@@ -41,16 +54,20 @@ public class CrowdShipping {
         TrajProcessor trajProcessor = new TrajProcessor();
         //System.out.println(System.getProperty("user.dir"));
         
-        trajProcessor.loadStoppageData(stopFile1Path);
-        trajProcessor.loadStoppageData(stopFile2Path);
-        trajProcessor.loadTrajectories(trajFilePath);
+        //trajProcessor.loadStoppageData(stopFile1Path);
+        //trajProcessor.loadStoppageData(stopFile2Path);
+        //trajProcessor.loadTrajectories(trajFilePath);
+        
+        trajProcessor.loadNYCStoppageData(stoppageFilePath);
+        trajProcessor.loadNYCTrajectories(userTrajectoryFilePath);
+        
         //trajProcessor.printTrajs();
-        //trajProcessor.printSummary();
-        trajProcessor.excludeWeekendUserIds();
+        trajProcessor.printSummary();
+        //trajProcessor.excludeWeekendUserIds();
         
         //trajProcessor.useNTrajsAsDataSet(50);     // for testing rtree leaves traversal order
         /// Param : Traj Count 100k, 250k, 400k, 550k (default)
-        int trajCount = 550000;
+        int trajCount = 1000000;
         trajProcessor.useNTrajsAsDataSet(trajCount);
         
         trajProcessor.normalizeTrajectories();
@@ -58,7 +75,6 @@ public class CrowdShipping {
         //trajProcessor.printTrajs(5);
         //trajProcessor.printNormalizedTrajs(5);
         trajProcessor.printInfo();
-        //System.exit(0);
         // create an object of TrajStorage to imitate database functionalities
         TrajStorage trajStorage = new TrajStorage(trajProcessor.getTrajIdToNormalizedTrajMap(),trajProcessor.getTrajIdToTrajMap());
         
@@ -164,8 +180,9 @@ public class CrowdShipping {
         System.out.println("Reverse...");
         quadTrajTree.printRevSummaryIndexSummary();
         //System.exit(0);
-        /*
+        
         // stats of stops
+        int clusterRangeInMeters = 100;
         HashMap<Integer, Integer> distanceWiseStopCount = new HashMap<>();
         for (HashMap.Entry<Integer, Pair<Double,Double>> fromEntry : trajProcessor.getStoppageMap().entrySet()){
             for (HashMap.Entry<Integer, Pair<Double,Double>> toEntry : trajProcessor.getStoppageMap().entrySet()){
@@ -237,12 +254,15 @@ public class CrowdShipping {
             System.out.println(entry.getKey()*clusterRangeInMeters + "\t" + (entry.getKey()+1)*clusterRangeInMeters + "\t" + entry.getValue());
         }
         
-        
+        System.exit(0);
         Set <Integer> stopIds = trajProcessor.getStoppageMap().keySet();
         int amongStops = 0;
         int outOfStops = 0;
         for (Trajectory trajectory : trajProcessor.getTrajIdToTrajMap().values()){
             for (TrajPoint trajPoint : trajectory.getPointList()){
+                for (Pair<Double,Double> stopCoords : trajProcessor.getStoppageMap().values()){
+                    
+                }
                 if (stopIds.contains(trajPoint.getStoppage().getStopId())){
                     amongStops++;
                 }
@@ -250,7 +270,7 @@ public class CrowdShipping {
             }
         }
         System.out.println("# of Trajpoints among stoppages = " + amongStops + ", out of stoppages = " + outOfStops);
-        */
+        
         // stopwise and timewise trajectory point distribution
         /*
         HashMap <Integer, Integer> stopWiseTrajs = new HashMap<>();

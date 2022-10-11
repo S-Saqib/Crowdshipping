@@ -107,6 +107,41 @@ public class TrajProcessor {
         System.out.println(stoppageMap.size() + " stoppages processed");
     }
     
+    public void loadNYCStoppageData(String path) throws FileNotFoundException, IOException{
+        System.out.println("Loading stoppages from file...");
+        File stoppageFile = new File(path);
+        if (stoppageFile == null){
+            System.out.println("Stoppage file at " + path + " not found");
+            System.exit(0);
+        }
+        
+        BufferedReader br = null;
+        String line = new String();
+
+        br = new BufferedReader(new FileReader(path));
+        
+        while ((line = br.readLine()) != null) {
+            //System.out.println(line);
+            String[] data = line.split("\t");
+            //for (String splittedData : data) System.out.println(splittedData);
+            int stopId = Integer.parseInt(data[0]);
+            double lat = Double.parseDouble(data[1]);
+            double lon = Double.parseDouble(data[2]);
+            
+            if (stoppageMap.containsKey(stopId)){
+                if (abs(stoppageMap.get(stopId).getKey()-lat)<1e-6 && abs(stoppageMap.get(stopId).getValue()-lon)<1e-6){
+                    System.out.println("OK!! Already found this stoppage with id = " + stopId + " and lat-lon matched");
+                }
+                else{
+                    System.out.println("Warning!! Already found this stoppage with id = " + stopId + " but lat-lon mismatched");
+                }
+            }
+            else{
+                stoppageMap.put(stopId, new Pair<>(lat,lon));
+            }
+        }
+        System.out.println(stoppageMap.size() + " stoppages processed");
+    }
     
     public void loadTrajectories(String path) throws FileNotFoundException, IOException, ParseException{
         File userTrajectoryFile = new File(path);
@@ -247,6 +282,151 @@ public class TrajProcessor {
             TrajPoint trajPoint = new TrajPoint(trajPointCoord, timeInSec);
             allTrajectories.get(anonymizedId).addTrajPoint(trajPoint);
             */
+        }
+        br.close();
+        
+        // 1% increase in spatio-temporal boundaries
+        maxLat += (maxLat-minLat)/100;
+        minLat -= (maxLat-minLat)/100;
+        maxLon += (maxLon-minLon)/100;
+        minLon -= (maxLon-minLon)/100;
+        maxTimeInSec += (maxTimeInSec-minTimeInSec)/100;
+        minTimeInSec -= (maxTimeInSec-minTimeInSec)/100;
+        //System.out.println("Traj count = " + trajCount);
+    }
+    
+    public void loadNYCTrajectories(String path) throws FileNotFoundException, IOException, ParseException{
+        File userTrajectoryFile = new File(path);
+        if (userTrajectoryFile == null){
+            System.out.println("User trajectory file at " + path + " not found");
+            System.exit(0);
+        }
+        
+        BufferedReader br = null;
+        String line = new String();
+
+        br = new BufferedReader(new FileReader(path));
+        // ignore the first line that contains the headers
+        br.readLine();
+        
+        System.out.println("Loading trajectories from file ...");
+        
+        // used to assign trajectory id
+        int trajCount = 0;
+        
+        int userCount = 0;
+        int currentTrajUserId = -1;
+        TrajEdge trajEdge = new TrajEdge();
+        Trajectory trajectory = new Trajectory();
+        
+        String date = "";
+        String[] dateAndTime = new String[2];
+        
+        // parse each line and add its point (location, time) to the appropriate trajectory
+        while ((line = br.readLine()) != null/* && trajCount < 40*/) {
+            // different fields in each line are extracted and quotes are trimmed
+            if (line.equals("")) continue;
+            String[] data = line.split(",");
+            
+            String startDatetime = data[1];
+            String endDatetime = data[2];
+            
+            // datetime filtering
+            if (startDatetime.compareTo(endDatetime) >= 0) continue;
+            dateAndTime = startDatetime.split(" ");
+            date = dateAndTime[0];
+            if (date.compareTo("2016-01-05") < 0 || date.compareTo("2016-01-07") > 0){
+                //System.out.println(date);
+                continue;
+            }
+            dateAndTime = endDatetime.split(" ");
+            date = dateAndTime[0];
+            if (date.compareTo("2016-01-05") < 0 || date.compareTo("2016-01-07") > 0){
+                //System.out.println(date);
+                continue;
+            }
+            
+            int transportMode = 0;
+            // calculate timestamp (timeInSec) with simple date format, its parse and getTime methods and converting obtained ms value to seconds
+            SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            long startTimeInSec = dateTimeFormat.parse(startDatetime).getTime()/1000;
+            long endTimeInSec = dateTimeFormat.parse(endDatetime).getTime()/1000;
+            
+            double startLat, startLon, endLat, endLon;
+            startLat = startLon = endLat = endLon = -1;
+            startLat = Double.parseDouble(data[4]);
+            startLon = Double.parseDouble(data[3]);
+            endLat = Double.parseDouble(data[6]);
+            endLon = Double.parseDouble(data[5]);
+            
+            Coordinate startTrajPointCoord = new Coordinate(startLat, startLon);
+            Coordinate endTrajPointCoord = new Coordinate(endLat, endLon);
+            
+            // remove spatial noise (outside our desired geographical zone)
+            if (abs(startLon + 74) > 1) continue;
+            if (abs(endLon + 74) > 1) continue;
+            if (abs(startLat - 41) > 1) continue;
+            if (abs(endLat - 41) > 1) continue;
+
+            if (startTrajPointCoord.x < minLat){
+                minLat = startTrajPointCoord.x;
+            }
+            else if (startTrajPointCoord.x > maxLat){
+                maxLat = startTrajPointCoord.x;
+            }
+            if (startTrajPointCoord.y < minLon){
+                minLon = startTrajPointCoord.y;
+            }
+            else if (startTrajPointCoord.y > maxLon){
+                maxLon = startTrajPointCoord.y;
+            }
+            
+            if (endTrajPointCoord.x < minLat){
+                minLat = endTrajPointCoord.x;
+            }
+            else if (endTrajPointCoord.x > maxLat){
+                maxLat = endTrajPointCoord.x;
+            }
+            if (endTrajPointCoord.y < minLon){
+                minLon = endTrajPointCoord.y;
+            }
+            else if (endTrajPointCoord.y > maxLon){
+                maxLon = endTrajPointCoord.y;
+            }
+
+            if (startTimeInSec < minTimeInSec){
+                minTimeInSec = startTimeInSec;
+            }
+            else if (startTimeInSec > maxTimeInSec){
+                maxTimeInSec = startTimeInSec;
+            }
+            
+            if (endTimeInSec < minTimeInSec){
+                minTimeInSec = endTimeInSec;
+            }
+            else if (endTimeInSec > maxTimeInSec){
+                maxTimeInSec = endTimeInSec;
+            }
+            
+            TrajPoint startTrajPoint = new TrajPoint(0, 0, 0, transportMode, true, startDatetime, startTimeInSec, startLat, startLon);
+            trajEdge.setStartsFrom(startTrajPoint);
+            
+            TrajPoint endTrajPoint = new TrajPoint(0, 0, 0, transportMode, false, endDatetime, endTimeInSec, endLat, endLon);
+            trajEdge.setEndsAt(endTrajPoint);
+            trajectory.getTrajEdges().add(trajEdge);
+            
+            int userId = userCount;
+            trajectory.setUserId(userId);
+            trajectory.setTrajId(Integer.toString(trajCount));
+            userIdToTrajIdMap.put(userId, new HashSet<>());
+            userIdToTrajIdMap.get(userId).add(trajectory.getTrajId());
+            //if (Integer.parseInt(trajectory.getTrajId()) > 958358) System.out.println(trajectory.getTrajId());
+            trajIdToTrajMap.put(trajectory.getTrajId(), trajectory);
+            
+            trajEdge = new TrajEdge();
+            trajectory = new Trajectory();
+            trajCount++;
+            userCount++;
         }
         br.close();
         
