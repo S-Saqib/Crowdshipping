@@ -344,7 +344,7 @@ public class CrowdShipping {
         */
         
                         //+ "isDelivered_all-traj\tAll-traj Cost (dis)\tAll-traj Time (sec)\tAll-traj Trajs(I/O)\tisDelivered_joined_AT_hop\tAT_Cost_Hop_joined\t");
-        int noOfPktsForDelivery = 100;
+        int noOfPktsForDelivery = 1000;
         // generates some random src, dest ids and puts them in lists
         // packetDeliveryQuery.populateRandomSrcDestIds(noOfPktsForDelivery);
         
@@ -355,7 +355,7 @@ public class CrowdShipping {
         //packetDeliveryQuery.populateCertainDistanceSrcDestIds(noOfPktsForDelivery, bucketId);
         // time info in packet (experiment with it
         /// Param : Pkt Duration (Hour) 0: 0.5-1, 1: 1-2, 2: 2-4 (default), 3: 4-8, 4: 8-24, 5: 24-72
-        int timeBucketId = 2;    // 0: <= 30 min to 1 hour, 1: 1 to 2 hours, 2: 2 to 4 hours, 3: 4 to 8 hours, 4: 8 hours to 1 day, 5: 1 to 3 days
+        int timeBucketId = 4;    // 0: <= 30 min to 1 hour, 1: 1 to 2 hours, 2: 2 to 4 hours, 3: 4 to 8 hours, 4: 8 hours to 1 day, 5: 1 to 3 days
         
         // dataset and time range i.e. hour/minute specific processing
         TreeMap<Integer, ArrayList<Integer>> timeHourIdWiseStops = new TreeMap<>();
