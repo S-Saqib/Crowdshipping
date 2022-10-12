@@ -184,6 +184,27 @@ public class QuadTree {
         return trajIds;
     }
     
+    // to get nearest stop id
+    public int getNearestPointTrajId(double xmin, double ymin, double xmax, double ymax, double x, double y){
+        Node[] nodes = searchIntersect(xmin, ymin, xmax, ymax);
+        //if (nodes.length > 0) System.out.println("Nodes size is " + nodes.length);
+        double minDis = 1e9;
+        Point nearest = null;
+        for (Node node : nodes){
+            ArrayList<Point> pointsInNode = trajStorage.getPointsFromQNode(node);
+            if (pointsInNode == null || pointsInNode.size() == 0) continue;
+            for (Point point : pointsInNode){
+                double dis = Math.sqrt((point.getX()-x)*(point.getX()-x)+(point.getY()-y)*(point.getY()-y));
+                if (dis < minDis){
+                    minDis = dis;
+                    nearest = point;
+                }
+            }
+        }
+        if (nearest == null) return -1;
+        return (Integer)nearest.getTraj_id();
+    }
+    
     // the following method is not used, so not updated like searchIntersect
     public Point[] searchWithin(final double xmin, final double ymin, final double xmax, final double ymax) {
         final List<Point> arr = new ArrayList<Point>();
