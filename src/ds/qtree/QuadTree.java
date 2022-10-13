@@ -184,25 +184,31 @@ public class QuadTree {
         return trajIds;
     }
     
-    // to get nearest stop id
-    public int getNearestPointTrajId(double xmin, double ymin, double xmax, double ymax, double x, double y){
-        Node[] nodes = searchIntersect(xmin, ymin, xmax, ymax);
-        //if (nodes.length > 0) System.out.println("Nodes size is " + nodes.length);
+    // to get nearest stop id  
+    public int getNearestPointTrajId(double xmin, double ymin, double xmax, double ymax, double x, double y, HashMap<Integer, javafx.util.Pair<Double, Double>> normalizedStoppageMap){
+        ArrayList<Object> trajIdObjList = getPointTrajIdsInRange(xmin, ymin, xmax, ymax);
         double minDis = 1e9;
-        Point nearest = null;
-        for (Node node : nodes){
-            ArrayList<Point> pointsInNode = trajStorage.getPointsFromQNode(node);
-            if (pointsInNode == null || pointsInNode.size() == 0) continue;
-            for (Point point : pointsInNode){
-                double dis = Math.sqrt((point.getX()-x)*(point.getX()-x)+(point.getY()-y)*(point.getY()-y));
+        int nearestTrajId = -1;
+        for (Object trajIdObjs : trajIdObjList){
+            ArrayList<Object> trajIdListAsObjs = (ArrayList<Object>)trajIdObjs;
+            for (Object trajIdObj : trajIdListAsObjs){
+                //System.out.println(trajIdObj);
+                if (trajIdObj == null){
+                    continue;
+                }
+                //int trajId = (Integer) trajIdObj; 
+                //double normLat = normalizedStoppageMap.get(trajId).getKey();
+                //double normLon = normalizedStoppageMap.get(trajId).getValue();
+                double normLat = ((Point) trajIdObj).getX();
+                double normLon = ((Point) trajIdObj).getY();
+                double dis = Math.sqrt((normLat-x)*(normLat-x)+(normLon-y)*(normLon-y));
                 if (dis < minDis){
                     minDis = dis;
-                    nearest = point;
+                    nearestTrajId = Integer.parseInt((String)(((Point) trajIdObj).getTraj_id()));
                 }
             }
         }
-        if (nearest == null) return -1;
-        return (Integer)nearest.getTraj_id();
+        return nearestTrajId;
     }
     
     // the following method is not used, so not updated like searchIntersect

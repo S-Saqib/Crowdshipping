@@ -112,18 +112,23 @@ public class PacketDeliveryQuery {
     }
     
     public void generatePktDeliveryReq(int fromStop, int toStop, long fromTimeInSec, long toTimeInSec){
-        pktReq.setSrcId(fromStop);
-        pktReq.setDestId(toStop);
-        pktReq.setSrcLat(stoppageMap.get(fromStop).getKey());
-        pktReq.setSrcLon(stoppageMap.get(fromStop).getValue());
-        pktReq.setDestLat(stoppageMap.get(toStop).getKey());
-        pktReq.setDestLon(stoppageMap.get(toStop).getValue());
-        pktReq.setNormSrcLat(normalizedStoppageMap.get(fromStop).getKey());
-        pktReq.setNormSrcLon(normalizedStoppageMap.get(fromStop).getValue());
-        pktReq.setNormDestLat(normalizedStoppageMap.get(toStop).getKey());
-        pktReq.setNormDestLon(normalizedStoppageMap.get(toStop).getValue());
-        pktReq.setSrcTimeInSec(fromTimeInSec);
-        pktReq.setDestTimeInSec(toTimeInSec);
+        try{
+            pktReq.setSrcId(fromStop);
+            pktReq.setDestId(toStop);
+            pktReq.setSrcLat(stoppageMap.get(fromStop).getKey());
+            pktReq.setSrcLon(stoppageMap.get(fromStop).getValue());
+            pktReq.setDestLat(stoppageMap.get(toStop).getKey());
+            pktReq.setDestLon(stoppageMap.get(toStop).getValue());
+            pktReq.setNormSrcLat(normalizedStoppageMap.get(fromStop).getKey());
+            pktReq.setNormSrcLon(normalizedStoppageMap.get(fromStop).getValue());
+            pktReq.setNormDestLat(normalizedStoppageMap.get(toStop).getKey());
+            pktReq.setNormDestLon(normalizedStoppageMap.get(toStop).getValue());
+            pktReq.setSrcTimeInSec(fromTimeInSec);
+            pktReq.setDestTimeInSec(toTimeInSec);
+        } catch (Exception E){
+            System.out.println("From stop = " + fromStop + ", To stop = " + toStop + " - " + stoppageMap.containsKey(fromStop) + stoppageMap.containsKey(toStop));
+            System.exit(0);
+        }
     }
     
     public void addTimeToGeneratedPkt(){
@@ -382,6 +387,11 @@ public class PacketDeliveryQuery {
             }
             int destStopId = destEntry.getValue().get(random.nextInt(destEntry.getValue().size()));
             if (srcStopId ==  destStopId){
+                i--;
+                continue;
+            }
+            // Specific to NYC dataset
+            else if (srcStopId == 0 || destStopId == 0){
                 i--;
                 continue;
             }

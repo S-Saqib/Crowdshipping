@@ -38,6 +38,15 @@ public class CrowdShipping {
         String stopFile1Path = "../Data/Myki/my_stop_locations.txt";
         String stopFile2Path = "../Data/Myki/stop_locations.txt";
         */
+        // parameters
+        /// Param : Traj Count 100k, 250k, 500k (default), 1M
+        int trajCount = 100000;
+        int keeperPercentage = 50;  /// Param : Keeper Percentage : 10, 25, 50 (default), 100
+        /// Param : Pkt Duration (Hour) 0: 0.5-1, 1: 1-2, 2: 2-4 (default), 3: 4-8, 4: 8-24, 5: 24-72
+        int timeBucketId = 2;    // 0: <= 30 min to 1 hour, 1: 1 to 2 hours, 2: 2 to 4 hours, 3: 4 to 8 hours, 4: 8 hours to 1 day, 5: 1 to 3 days
+        /// Param : Max Detour in m 500, 1000 (default), 2000, 4000
+        double detourDistanceThreshold = 1000; // in meters
+        
         
         String routeFilePath = "E:\\Education\\Academic\\BUET\\Educational\\Departmental\\4-2\\Thesis\\Data\\New York\\Facility\\NYC_transport\\NYC_routes.txt";
         String stoppageFilePath = "E:\\Education\\Academic\\BUET\\Educational\\Departmental\\4-2\\Thesis\\Data\\New York\\Facility\\NYC_transport\\NYC_stopid.txt";
@@ -48,8 +57,8 @@ public class CrowdShipping {
             System.exit(0);
         }
         
-        /// Param : Keeper Percentage : 10, 25, 50 (default), 100
-        int keeperPercentage = 50;
+        
+        
         
         TrajProcessor trajProcessor = new TrajProcessor();
         //System.out.println(System.getProperty("user.dir"));
@@ -66,8 +75,6 @@ public class CrowdShipping {
         //trajProcessor.excludeWeekendUserIds();
         
         //trajProcessor.useNTrajsAsDataSet(50);     // for testing rtree leaves traversal order
-        /// Param : Traj Count 100k, 250k, 400k, 550k (default)
-        int trajCount = 1000000;
         trajProcessor.useNTrajsAsDataSet(trajCount);
         
         trajProcessor.normalizeTrajectories();
@@ -136,24 +143,152 @@ public class CrowdShipping {
         }
         */
         trajProcessor.normalizeStops();
-        
         quadTrajTree.indexStoppages(trajProcessor.getNormalizedStoppageMap());
         
-        trajProcessor.useNPercentStopsAsKeepers(keeperPercentage);
+        //System.out.println(quadTrajTree.getStoppageQuadTree().getCount() + " " + quadTrajTree.getStoppageQuadTree().getHeight() + " " + quadTrajTree.getStoppageQuadTree().getNodeCount() + " " + quadTrajTree.getStoppageQuadTree().getRootNode());
+        //System.out.println(quadTrajTree.getStoppageQuadTree().getKeys()[5].getX() + " " + quadTrajTree.getStoppageQuadTree().getKeys()[5].getY());
         
+        // stopwise and timewise trajectory point distribution
+        DistanceConverter distanceConverter = new DistanceConverter(trajProcessor.getMaxLon(), trajProcessor.getMaxLat(), trajProcessor.getMinLon(), trajProcessor.getMinLat());
         // the following proximity, distance etc. are calculated in normalized lat, lon space
         double spatialProximity;
-        // need to consider keepers
-        /// Param : Max Detour in KM 500, 1000 (default), 2000, 4000
-        double detourDistanceThreshold = 1000; // in meters
         spatialProximity = detourDistanceThreshold;
         ///
         String proximityUnit = "m"; // it can be "m", "km", "mile" and "ft"
-        DistanceConverter distanceConverter = new DistanceConverter(trajProcessor.getMaxLon(), trajProcessor.getMaxLat(), trajProcessor.getMinLon(), trajProcessor.getMinLat());
         double latProximity = distanceConverter.getLatProximity(spatialProximity, proximityUnit);
         double lonProximity = distanceConverter.getLonProximity(spatialProximity, proximityUnit);
         
         System.out.println(latProximity + " and " + lonProximity);
+        double clusterRangeInMeters = 100;
+        double latClusterRange = distanceConverter.getLatProximity(clusterRangeInMeters, proximityUnit);
+        double lonClusterRange = distanceConverter.getLonProximity(clusterRangeInMeters, proximityUnit);
+        int trajNotMappedToStopCount = 0;
+                
+        HashMap <Integer, Integer> stopWiseTrajs = new HashMap<>();
+        HashMap <Integer, Integer> timeHourWiseTrajs = new HashMap<>();
+        HashMap <Integer, Integer> timeMinuteWiseTrajs = new HashMap<>();
+        for (Trajectory trajectory : trajProcessor.getTrajIdToNormalizedTrajMap().values()){
+            TrajPoint trajStartPoint = trajectory.getPointList().first();
+            TrajPoint trajEndPoint = trajectory.getPointList().last();
+            double lat = trajStartPoint.getStoppage().getStopLocation().x;
+            double lon = trajStartPoint.getStoppage().getStopLocation().y;
+            double xMin = lat - latClusterRange/2;
+            double xMax = lat + latClusterRange/2;
+            double yMin = lon - lonClusterRange/2;
+            double yMax = lon + lonClusterRange/2;
+            //System.out.println("START xMin, xMax, yMin, yMax = " + xMin + ", " + xMax + ", " + yMin + ", " + yMax);
+            int startStopId = quadTrajTree.getStoppageQuadTree().getNearestPointTrajId(xMin, yMin, xMax, yMax, lat, lon, trajProcessor.getNormalizedStoppageMap());
+            
+            lat = trajEndPoint.getStoppage().getStopLocation().x;
+            lon = trajEndPoint.getStoppage().getStopLocation().y;
+            xMin = lat - latClusterRange/2;
+            xMax = lat + latClusterRange/2;
+            yMin = lon - lonClusterRange/2;
+            yMax = lon + lonClusterRange/2;
+            //System.out.println("END xMin, xMax, yMin, yMax = " + xMin + ", " + xMax + ", " + yMin + ", " + yMax);
+            int endStopId = quadTrajTree.getStoppageQuadTree().getNearestPointTrajId(xMin, yMin, xMax, yMax, lat, lon, trajProcessor.getNormalizedStoppageMap());
+            
+            if (startStopId == -1 || endStopId == -1){
+                trajNotMappedToStopCount++;
+                continue;
+            }
+            trajStartPoint.getStoppage().setStopId(startStopId);
+            trajEndPoint.getStoppage().setStopId(endStopId);
+            trajProcessor.getTrajIdToTrajMap().get(trajectory.getTrajId()).getPointList().first().getStoppage().setStopId(startStopId);
+            trajProcessor.getTrajIdToTrajMap().get(trajectory.getTrajId()).getPointList().last().getStoppage().setStopId(endStopId);
+            /*
+            if (!stopWiseTrajs.containsKey(startStopId)){
+                stopWiseTrajs.put(startStopId, 0);
+            }
+            stopWiseTrajs.put(startStopId, stopWiseTrajs.get(startStopId)+1);
+            
+            if (!stopWiseTrajs.containsKey(endStopId)){
+                stopWiseTrajs.put(endStopId, 0);
+            }
+            stopWiseTrajs.put(endStopId, stopWiseTrajs.get(endStopId)+1);
+            
+            int timeHourId = (int)(trajStartPoint.getTimeInSec() - trajProcessor.getMinTimeInSec())/3600;
+            if (!timeHourWiseTrajs.containsKey(timeHourId)){
+                timeHourWiseTrajs.put(timeHourId, 0);
+            }
+            timeHourWiseTrajs.put(timeHourId, timeHourWiseTrajs.get(timeHourId)+1);
+
+            int timeMinuteId = (int)(trajStartPoint.getTimeInSec() - trajProcessor.getMinTimeInSec())/60;
+            if (!timeMinuteWiseTrajs.containsKey(timeMinuteId)){
+                timeMinuteWiseTrajs.put(timeMinuteId, 0);
+            }
+            timeMinuteWiseTrajs.put(timeMinuteId, timeMinuteWiseTrajs.get(timeMinuteId)+1);
+            
+            timeHourId = (int)(trajEndPoint.getTimeInSec() - trajProcessor.getMinTimeInSec())/3600;
+            if (!timeHourWiseTrajs.containsKey(timeHourId)){
+                timeHourWiseTrajs.put(timeHourId, 0);
+            }
+            timeHourWiseTrajs.put(timeHourId, timeHourWiseTrajs.get(timeHourId)+1);
+
+            timeMinuteId = (int)(trajEndPoint.getTimeInSec() - trajProcessor.getMinTimeInSec())/60;
+            if (!timeMinuteWiseTrajs.containsKey(timeMinuteId)){
+                timeMinuteWiseTrajs.put(timeMinuteId, 0);
+            }
+            timeMinuteWiseTrajs.put(timeMinuteId, timeMinuteWiseTrajs.get(timeMinuteId)+1);
+            */
+        }
+        /*
+        System.out.println("Trajectories not mapped to stops (one or both points) = " + trajNotMappedToStopCount);
+        
+        System.out.println("# of Stops having traj points = " + stopWiseTrajs.size());
+        System.out.println("Stop Id\tCount");
+        for (HashMap.Entry<Integer, Integer> entry : stopWiseTrajs.entrySet()){
+            int stopId = entry.getKey();
+            int count = entry.getValue();
+            System.out.println(stopId + "\t" + count);
+        }
+        
+        System.out.println("# of Times (hours) having traj points = " + timeHourWiseTrajs.size());
+        System.out.println("Hour Id\tCount");
+        for (HashMap.Entry<Integer, Integer> entry : timeHourWiseTrajs.entrySet()){
+            int timeHourId = entry.getKey();
+            int count = entry.getValue();
+            System.out.println(timeHourId + "\t" + count);
+        }
+        
+        System.out.println("# of Times (minutes) having traj points = " + timeMinuteWiseTrajs.size());
+        System.out.println("Minute Id\tCount");
+        for (HashMap.Entry<Integer, Integer> entry : timeMinuteWiseTrajs.entrySet()){
+            int timeMinuteId = entry.getKey();
+            int count = entry.getValue();
+            System.out.println(timeMinuteId + "\t" + count);
+        }
+        
+        HashMap <Integer, HashMap<Integer, Integer>> stopWiseHourlyTrajs = new HashMap<>();
+        for (Trajectory trajectory : trajProcessor.getTrajIdToTrajMap().values()){
+            for (TrajPoint trajPoint : trajectory.getPointList()){
+                int stopId = trajPoint.getStoppage().getStopId();
+                if (!stopWiseHourlyTrajs.containsKey(stopId)){
+                    stopWiseHourlyTrajs.put(stopId, new HashMap<>());
+                }
+                int timeHourId = (int)(trajPoint.getTimeInSec() - trajProcessor.getMinTimeInSec())/3600;
+                if (!stopWiseHourlyTrajs.get(stopId).containsKey(timeHourId)){
+                    stopWiseHourlyTrajs.get(stopId).put(timeHourId, 0);
+                }
+                stopWiseHourlyTrajs.get(stopId).put(timeHourId, stopWiseHourlyTrajs.get(stopId).get(timeHourId)+1);
+            }
+        }
+        System.out.println("# of (Stops, Hour) having traj points = " + stopWiseHourlyTrajs.size());
+        System.out.println("Stop Id\tHour Id\tCount");
+        for (HashMap.Entry<Integer, HashMap<Integer, Integer>> entry : stopWiseHourlyTrajs.entrySet()){
+            int stopId = entry.getKey();
+            for (HashMap.Entry<Integer, Integer> entry2 : entry.getValue().entrySet()){
+                int hourId = entry2.getKey();
+                int count = entry2.getValue();
+                System.out.println(stopId + "\t" + hourId + "\t" + count);
+            }
+        }
+        
+        */
+        
+        //System.exit(0);
+        trajProcessor.useNPercentStopsAsKeepers(keeperPercentage);
+        
         /*
         // merge stops in 0.01m spatial range into a single trajgraph node
         double latClusterRange = 0.01;
@@ -179,11 +314,13 @@ public class CrowdShipping {
         quadTrajTree.printSummaryIndexSummary();
         System.out.println("Reverse...");
         quadTrajTree.printRevSummaryIndexSummary();
-        //System.exit(0);
         
-        double clusterRangeInMeters = 100;
-        double latClusterRange = distanceConverter.getLatProximity(clusterRangeInMeters, proximityUnit);
-        double lonClusterRange = distanceConverter.getLonProximity(clusterRangeInMeters, proximityUnit);
+        
+        //double clusterRangeInMeters = 100;
+        //double latClusterRange = distanceConverter.getLatProximity(clusterRangeInMeters, proximityUnit);
+        //double lonClusterRange = distanceConverter.getLonProximity(clusterRangeInMeters, proximityUnit);
+        //System.out.println("Lat cluster range = " + latClusterRange + " , Lon cluster range = " + lonClusterRange);
+        //System.exit(0);
         // note that this cluster range along latitude and longitude is in normalized space
         
         // stats of stops
@@ -280,12 +417,13 @@ public class CrowdShipping {
         */
         
         // stopwise and timewise trajectory point distribution
+        /*
         int trajNotMappedToStopCount = 0;
                 
         HashMap <Integer, Integer> stopWiseTrajs = new HashMap<>();
         HashMap <Integer, Integer> timeHourWiseTrajs = new HashMap<>();
         HashMap <Integer, Integer> timeMinuteWiseTrajs = new HashMap<>();
-        for (Trajectory trajectory : trajProcessor.getTrajIdToTrajMap().values()){
+        for (Trajectory trajectory : trajProcessor.getTrajIdToNormalizedTrajMap().values()){
             TrajPoint trajStartPoint = trajectory.getPointList().first();
             TrajPoint trajEndPoint = trajectory.getPointList().last();
             double lat = trajStartPoint.getStoppage().getStopLocation().x;
@@ -294,8 +432,8 @@ public class CrowdShipping {
             double xMax = lat + latClusterRange/2;
             double yMin = lon - lonClusterRange/2;
             double yMax = lon + lonClusterRange/2;
-            //System.out.println("startLat, startLon = " + lat + ", " + lon);
-            int startStopId = quadTrajTree.getStoppageQuadTree().getNearestPointTrajId(xMin, yMin, xMax, yMax, lat, lon);
+            //System.out.println("START xMin, xMax, yMin, yMax = " + xMin + ", " + xMax + ", " + yMin + ", " + yMax);
+            int startStopId = quadTrajTree.getStoppageQuadTree().getNearestPointTrajId(xMin, yMin, xMax, yMax, lat, lon, trajProcessor.getNormalizedStoppageMap());
             
             lat = trajEndPoint.getStoppage().getStopLocation().x;
             lon = trajEndPoint.getStoppage().getStopLocation().y;
@@ -303,8 +441,8 @@ public class CrowdShipping {
             xMax = lat + latClusterRange/2;
             yMin = lon - lonClusterRange/2;
             yMax = lon + lonClusterRange/2;
-            //System.out.println("endLat, endLon = " + lat + ", " + lon);
-            int endStopId = quadTrajTree.getStoppageQuadTree().getNearestPointTrajId(xMin, yMin, xMax, yMax, lat, lon);
+            //System.out.println("END xMin, xMax, yMin, yMax = " + xMin + ", " + xMax + ", " + yMin + ", " + yMax);
+            int endStopId = quadTrajTree.getStoppageQuadTree().getNearestPointTrajId(xMin, yMin, xMax, yMax, lat, lon, trajProcessor.getNormalizedStoppageMap());
             
             if (startStopId == -1 || endStopId == -1){
                 trajNotMappedToStopCount++;
@@ -376,7 +514,7 @@ public class CrowdShipping {
         }
         
         System.exit(0);
-        /*
+        
         HashMap <Integer, HashMap<Integer, Integer>> stopWiseHourlyTrajs = new HashMap<>();
         for (Trajectory trajectory : trajProcessor.getTrajIdToTrajMap().values()){
             for (TrajPoint trajPoint : trajectory.getPointList()){
@@ -419,7 +557,7 @@ public class CrowdShipping {
         */
         
                         //+ "isDelivered_all-traj\tAll-traj Cost (dis)\tAll-traj Time (sec)\tAll-traj Trajs(I/O)\tisDelivered_joined_AT_hop\tAT_Cost_Hop_joined\t");
-        int noOfPktsForDelivery = 1000;
+        int noOfPktsForDelivery = 100;
         // generates some random src, dest ids and puts them in lists
         // packetDeliveryQuery.populateRandomSrcDestIds(noOfPktsForDelivery);
         
@@ -430,13 +568,13 @@ public class CrowdShipping {
         //packetDeliveryQuery.populateCertainDistanceSrcDestIds(noOfPktsForDelivery, bucketId);
         // time info in packet (experiment with it
         /// Param : Pkt Duration (Hour) 0: 0.5-1, 1: 1-2, 2: 2-4 (default), 3: 4-8, 4: 8-24, 5: 24-72
-        int timeBucketId = 4;    // 0: <= 30 min to 1 hour, 1: 1 to 2 hours, 2: 2 to 4 hours, 3: 4 to 8 hours, 4: 8 hours to 1 day, 5: 1 to 3 days
+        //int timeBucketId = 2;    // 0: <= 30 min to 1 hour, 1: 1 to 2 hours, 2: 2 to 4 hours, 3: 4 to 8 hours, 4: 8 hours to 1 day, 5: 1 to 3 days
         
         // dataset and time range i.e. hour/minute specific processing
         TreeMap<Integer, ArrayList<Integer>> timeHourIdWiseStops = new TreeMap<>();
         TreeMap<Integer, ArrayList<Integer>> stopWiseHourId = new TreeMap<>();
         int maxHourId = Integer.MIN_VALUE;
-        String pktSrcDestFilePath = "E:\\Education\\Academic\\BUET\\Educational\\MSc_BUET\\Thesis\\Experiments_Insights\\550k_Hotspots_TS_25%.txt";
+        String pktSrcDestFilePath = "E:\\Education\\Academic\\BUET\\Educational\\MSc_BUET\\Thesis\\Experiments_Insights\\1M_NYC_Hotspots_TS_25%.txt";
         BufferedReader br = null;
         String line = new String();
         br = new BufferedReader(new FileReader(pktSrcDestFilePath));
@@ -467,8 +605,8 @@ public class CrowdShipping {
         */
         
         System.out.println("\nParameters:");
-        //System.out.print("Traj_Count\t" + trajCount + "\tKeeper %\t" + keeperPercentage + "\tPkt_Duration(H)_Id\t" + timeBucketId + "\tMax_Detour(m)\t" + detourDistanceThreshold);
-        System.out.print("Traj_Count\t" + trajCount + "\tKeeper %\t" + keeperPercentage + "\tPkt_Dis_Id(km)" + bucketId + "\tPkt_Duration(H)_Id\t" + timeBucketId + "\tMax_Detour(m)\t" + detourDistanceThreshold);
+        System.out.print("Traj_Count\t" + trajCount + "\tKeeper %\t" + keeperPercentage + "\tPkt_Duration(H)_Id\t" + timeBucketId + "\tMax_Detour(m)\t" + detourDistanceThreshold);
+        //System.out.print("Traj_Count\t" + trajCount + "\tKeeper %\t" + keeperPercentage + "\tPkt_Dis_Id(km)" + bucketId + "\tPkt_Duration(H)_Id\t" + timeBucketId + "\tMax_Detour(m)\t" + detourDistanceThreshold);
         System.out.print("\nSrc\tDest\tDis(" + proximityUnit + ")\tSrc time(sec)\tDest time(sec)\tDuration(sec)\tDuration(H:M)\t"
                     + "SQ_S Delivered\tSQ_S Cost(dis)\tSQ_S Duration(sec)\tSQ_S Runtime(sec)\tSQ_S I/O\t"
                     + "BL_S Delivered\tBL_S Cost(dis)\tBL_S Duration(sec)\tBL_S Runtime(sec)\tBL_S I/O\t"
