@@ -185,7 +185,7 @@ public class QuadTree {
     }
     
     // to get nearest stop id  
-    public int getNearestPointTrajId(double xmin, double ymin, double xmax, double ymax, double x, double y, HashMap<Integer, javafx.util.Pair<Double, Double>> normalizedStoppageMap){
+    public int getNearestPointTrajId(double xmin, double ymin, double xmax, double ymax, double x, double y, HashMap<Integer, javafx.util.Pair<Double, Double>> normalizedStoppageMap, HashSet<Integer> availableSet){
         ArrayList<Object> trajIdObjList = getPointTrajIdsInRange(xmin, ymin, xmax, ymax);
         double minDis = 1e9;
         int nearestTrajId = -1;
@@ -196,6 +196,8 @@ public class QuadTree {
                 if (trajIdObj == null){
                     continue;
                 }
+                int trajId = Integer.parseInt((String)(((Point) trajIdObj).getTraj_id()));
+                if (!availableSet.contains(trajId)) continue;
                 //int trajId = (Integer) trajIdObj; 
                 //double normLat = normalizedStoppageMap.get(trajId).getKey();
                 //double normLon = normalizedStoppageMap.get(trajId).getValue();
@@ -204,7 +206,7 @@ public class QuadTree {
                 double dis = Math.sqrt((normLat-x)*(normLat-x)+(normLon-y)*(normLon-y));
                 if (dis < minDis){
                     minDis = dis;
-                    nearestTrajId = Integer.parseInt((String)(((Point) trajIdObj).getTraj_id()));
+                    nearestTrajId = trajId;
                 }
             }
         }

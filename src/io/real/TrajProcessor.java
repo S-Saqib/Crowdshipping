@@ -295,7 +295,7 @@ public class TrajProcessor {
         //System.out.println("Traj count = " + trajCount);
     }
     
-    public void loadNYCTrajectories(String path) throws FileNotFoundException, IOException, ParseException{
+    public void loadNYCTrajectories(String path, int noOfDays) throws FileNotFoundException, IOException, ParseException{
         File userTrajectoryFile = new File(path);
         if (userTrajectoryFile == null){
             System.out.println("User trajectory file at " + path + " not found");
@@ -335,13 +335,13 @@ public class TrajProcessor {
             if (startDatetime.compareTo(endDatetime) >= 0) continue;
             dateAndTime = startDatetime.split(" ");
             date = dateAndTime[0];
-            if (date.compareTo("2016-01-05") < 0 || date.compareTo("2016-01-07") > 0){
+            if (date.compareTo("2016-01-0"+(7+1-noOfDays)) < 0 || date.compareTo("2016-01-07") > 0){
                 //System.out.println(date);
                 continue;
             }
             dateAndTime = endDatetime.split(" ");
             date = dateAndTime[0];
-            if (date.compareTo("2016-01-05") < 0 || date.compareTo("2016-01-07") > 0){
+            if (date.compareTo("2016-01-0"+(7+1-noOfDays)) < 0 || date.compareTo("2016-01-07") > 0){
                 //System.out.println(date);
                 continue;
             }
@@ -670,6 +670,19 @@ public class TrajProcessor {
     public HashSet<Integer> getNormalizedKeeperSet(){
         //return (HashSet<Integer>) normalizedKeeperMap.keySet();
         return new HashSet<Integer>(normalizedKeeperMap.keySet());
+    }
+
+    public void setAvailableStops(HashSet<Integer> availableStops) {
+        HashSet<Integer> excludeStops = new HashSet<>();
+        for (Integer stopId : stoppageMap.keySet()){
+            if (!availableStops.contains(stopId)){
+                excludeStops.add(stopId);
+            }
+        }
+        for (Integer stopId : excludeStops){
+            stoppageMap.remove(stopId);
+            //normalizedStoppageMap.remove(stopId);
+        }
     }
     
 }
